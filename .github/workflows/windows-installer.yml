@@ -72,7 +72,9 @@ jobs:
           # Inno Setup 6 does not ship the Chinese wizard text; fetch the file of the
           # installed version (it lives in Unofficial/ before it became official)
           $isl = "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\ChineseSimplified.isl"
-          $tag = "is-" + ((Get-Item $iscc).VersionInfo.ProductVersion -replace '[^0-9.]', '' -replace '\.', '_')
+          # "innosetup|6.7.1" -> "is-6_7_1"
+          $innoVersion = ((choco list innosetup --exact --limit-output) -split '\|')[1]
+          $tag = "is-" + ($innoVersion -replace '\.', '_')
           foreach ($dir in @("Files/Languages", "Files/Languages/Unofficial")) {
             if (Test-Path $isl) { break }
             try {
