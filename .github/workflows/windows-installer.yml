@@ -69,13 +69,17 @@ jobs:
         run: |
           choco install innosetup -y --no-progress
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          # the Chinese wizard text is an unofficial translation, not shipped with Inno Setup
-          try {
-            Invoke-WebRequest -UseBasicParsing -OutFile "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\ChineseSimplified.isl" `
-              -Uri "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl"
-          } catch {
-            Write-Warning "ChineseSimplified.isl download failed, installer will be English only"
+          # Inno Setup 6 does not ship the Chinese wizard text; fetch the file of the
+          # installed version (it lives in Unofficial/ before it became official)
+          $isl = "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\ChineseSimplified.isl"
+          $tag = "is-" + ((Get-Item $iscc).VersionInfo.ProductVersion -replace '[^0-9.]', '' -replace '\.', '_')
+          foreach ($dir in @("Files/Languages", "Files/Languages/Unofficial")) {
+            if (Test-Path $isl) { break }
+            try {
+              Invoke-WebRequest -UseBasicParsing -OutFile $isl -Uri "https://raw.githubusercontent.com/jrsoftware/issrc/$tag/$dir/ChineseSimplified.isl"
+            } catch { }
           }
+          if (-not (Test-Path $isl)) { Write-Warning "ChineseSimplified.isl for $tag not found, installer will be English only" }
           & $iscc "/DSourceDir=$pwd\ci\build\${{ env.publish-name }}" "/DAppVersion=$env:APP_VERSION" "/DOutputDir=$pwd\ci\build\installer" ci\win\installer.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Compress-Archive -Path "ci\build\${{ env.publish-name }}" -DestinationPath "ci\build\installer\${{ env.publish-name }}-portable-$env:APP_VERSION.zip"
