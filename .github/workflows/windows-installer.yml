@@ -1,0 +1,85 @@
+name: Windows Installer
+
+# Builds QtScrcpy for Windows x64 and packs it into an Inno Setup installer.
+# Push a tag like v1.0.0 to also publish the installer as a GitHub release.
+on:
+  push:
+    branches: [ main, master, dev ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      publish-name: QtScrcpyKeyMouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 5.15.2
+          target: desktop
+          arch: win64_msvc2019_64
+          dir: ${{ github.workspace }}\qtinstall
+          cache: true
+
+      - name: Locate toolchain and version
+        shell: pwsh
+        run: |
+          # QT_ROOT_DIR is ...\Qt\5.15.2\msvc2019_64; the build scripts want ...\Qt\5.15.2
+          echo "ENV_QT_PATH=$(Split-Path $env:QT_ROOT_DIR)" >> $env:GITHUB_ENV
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          echo "ENV_VCVARSALL=$vs\VC\Auxiliary\Build\vcvarsall.bat" >> $env:GITHUB_ENV
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            $version = "1.0.${env:GITHUB_RUN_NUMBER}"
+          }
+          echo "APP_VERSION=$version" >> $env:GITHUB_ENV
+          Set-Content -NoNewline -Path QtScrcpy\appversion -Value $version
+
+      - name: Unit tests (gamemapcore)
+        shell: cmd
+        working-directory: QtScrcpy\QtScrcpyCore
+        run: |
+          call "%ENV_VCVARSALL%" x64 || exit /b 1
+          cl /nologo /EHsc /W3 /WX /I src\device\controller\inputconvert\keymap test\gamemapcore_test.cpp src\device\controller\inputconvert\keymap\gamemapcore.cpp /Fe:gamemapcore_test.exe || exit /b 1
+          gamemapcore_test.exe || exit /b 1
+
+      - name: Build
+        shell: cmd
+        run: |
+          call ci\win\build_for_win.bat RelWithDebInfo x64
+          if errorlevel 1 exit /b 1
+
+      - name: Publish folder
+        shell: cmd
+        run: |
+          call ci\win\publish_for_win.bat x64 ..\build\${{ env.publish-name }}
+          if errorlevel 1 exit /b 1
+          if not exist ci\build\${{ env.publish-name }}\QtScrcpy.exe exit /b 1
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc "/DSourceDir=$pwd\ci\build\${{ env.publish-name }}" "/DAppVersion=$env:APP_VERSION" "/DOutputDir=$pwd\ci\build\installer" ci\win\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path "ci\build\${{ env.publish-name }}" -DestinationPath "ci\build\installer\${{ env.publish-name }}-portable-$env:APP_VERSION.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.publish-name }}-${{ env.APP_VERSION }}
+          path: ci\build\installer\*
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ci\build\installer\*
