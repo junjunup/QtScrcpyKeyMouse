@@ -313,6 +313,13 @@ void Controller::keyEvent(const QKeyEvent *from, const QSize &frameSize, const Q
     }
 }
 
+void Controller::releaseInput()
+{
+    if (m_inputConvert) {
+        m_inputConvert->releaseInput();
+    }
+}
+
 bool Controller::event(QEvent *event)
 {
     if (event && static_cast<ControlMsg::Type>(event->type()) == ControlMsg::Control) {

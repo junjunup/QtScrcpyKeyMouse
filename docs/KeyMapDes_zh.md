@@ -87,6 +87,32 @@
     - autoReleaseMs 鼠标停止移动多久后自动抬起视角手指（毫秒），默认 500；0 表示一直按住
     - startPos 和 smallEyes.pos 必须在 bounds 里面
     
+### 多场景（scenes）
+一份配置可以包含多套键位，比如步行、驾驶、背包。根对象本身就是第一个场景，`scenes` 数组里每一项是一个额外的场景：
+
+```json
+{
+    "switchKey": "Key_QuoteLeft",
+    "name": "步行",
+    "hotKey": "Key_F4",
+    "mouseMoveMap": { ... },
+    "keyMapNodes": [
+        { "type": "KMT_CLICK", "key": "Key_F", "pos": {"x": 0.7, "y": 0.34}, "switchMap": false, "switchScene": "驾驶" }
+    ],
+    "scenes": [
+        { "name": "驾驶", "hotKey": "Key_F5", "keyMapNodes": [ ... ] },
+        { "name": "背包", "hotKey": "Key_Tab", "mouseMoveMap": false, "keyMapNodes": [ ... ] }
+    ]
+}
+```
+
+- name：场景名称，按键靠它指定要切换到的场景。根对象没写 name 时，名称是 `default`。
+- hotKey（可选，只能是键盘按键）：映射开启时按下它切换到这个场景；在这个场景里再按一次，回到第一个场景。
+- mouseMoveMap：不写表示沿用第一个场景的鼠标视角；写成对象表示本场景单独设置；写成 `false` 表示本场景关闭视角，鼠标直接点画面。
+- switchScene（可选，写在键盘按键的节点上）：这个键照常点击，**松开后**切换到指定场景。比如“上车”键：点完上车按钮，就换成驾驶场景的键位。
+- switchKey 只在根对象里写，所有场景共用。
+- 切换场景时会先抬起所有手指。还按住的键（比如上车时按着的 W）会在新场景里立即重新生效。
+
 ## 可视化按键映射工具
 1. 直接使用[QuickAssistant](https://lrbnfell4p.feishu.cn/drive/folder/Hqckfxj5el1Wjpd9uezcX71lnBh)
 

@@ -1,13 +1,20 @@
 #include <QDebug>
 
+extern "C"
+{
+#include "libavutil/hwcontext.h"
+}
+
 #include "compat.h"
 #include "decoder.h"
+#include "hwframe.h"
 #include "videobuffer.h"
 
-Decoder::Decoder(std::function<void(int, int, uint8_t*, uint8_t*, uint8_t*, int, int, int)> onFrame, QObject *parent)
+Decoder::Decoder(std::function<void(int, int, uint8_t*, uint8_t*, uint8_t*, int, int, int)> onFrame, bool tryHardware, QObject *parent)
     : IDecoder(parent)
     , m_vb(new VideoBuffer())
     , m_onFrame(onFrame)
+    , m_tryHardware(tryHardware)
 {
     m_vb->init();
     connect(this, &Decoder::newFrame, this, &Decoder::onNewFrame, Qt::QueuedConnection);
@@ -34,6 +41,9 @@ bool Decoder::open()
         qCritical("Could not allocate decoder context");
         return false;
     }
+    if (m_tryHardware) {
+        initHardware();
+    }
     if (avcodec_open2(m_codecCtx, codec, NULL) < 0) {
         qCritical("Could not open H.264 codec");
         return false;
@@ -55,6 +65,83 @@ void Decoder::close()
         avcodec_close(m_codecCtx);
     }
     avcodec_free_context(&m_codecCtx);
+    av_buffer_unref(&m_hwDeviceCtx);
+    av_frame_free(&m_hwTransferFrame);
+}
+
+void Decoder::initHardware()
+{
+    // D3D11VA first (Windows 8+), DXVA2 for older drivers. FFmpeg builds without
+    // these hwaccels (like the one bundled for development) simply fail here.
+    const AVHWDeviceType types[] = {
+#ifdef Q_OS_WIN
+        AV_HWDEVICE_TYPE_D3D11VA,
+        AV_HWDEVICE_TYPE_DXVA2,
+#endif
+        AV_HWDEVICE_TYPE_NONE
+    };
+    const AVCodec *codec = m_codecCtx->codec;
+    for (int i = 0; types[i] != AV_HWDEVICE_TYPE_NONE; ++i) {
+        int pixFmt = -1;
+        for (int j = 0;; ++j) {
+            const AVCodecHWConfig *config = avcodec_get_hw_config(codec, j);
+            if (!config) {
+                break;
+            }
+            if ((config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) && config->device_type == types[i]) {
+                pixFmt = config->pix_fmt;
+                break;
+            }
+        }
+        if (pixFmt < 0) {
+            continue;
+        }
+        if (av_hwdevice_ctx_create(&m_hwDeviceCtx, types[i], NULL, NULL, 0) < 0) {
+            continue;
+        }
+        m_codecCtx->hw_device_ctx = av_buffer_ref(m_hwDeviceCtx);
+        m_codecCtx->opaque = this;
+        m_codecCtx->get_format = &Decoder::getFormat;
+        m_hwPixFmt = pixFmt;
+        m_hwTransferFrame = av_frame_alloc();
+        qInfo("hardware decoding: %s", av_hwdevice_get_type_name(types[i]));
+        return;
+    }
+    qInfo("hardware decoding is not available, using software decoding");
+}
+
+enum AVPixelFormat Decoder::getFormat(AVCodecContext *ctx, const enum AVPixelFormat *formats)
+{
+    const Decoder *self = static_cast<const Decoder *>(ctx->opaque);
+    for (const enum AVPixelFormat *p = formats; *p != AV_PIX_FMT_NONE; ++p) {
+        if (self && *p == self->m_hwPixFmt) {
+            return *p;
+        }
+    }
+    // the GPU cannot decode this stream: FFmpeg decodes it in software
+    qWarning("hardware decoding does not support this stream, using software decoding");
+    return avcodec_default_get_format(ctx, formats);
+}
+
+bool Decoder::downloadHardwareFrame(AVFrame *frame)
+{
+    if (!m_hwTransferFrame) {
+        return false;
+    }
+    av_frame_unref(m_hwTransferFrame);
+    int ret = av_hwframe_transfer_data(m_hwTransferFrame, frame, 0);
+    // give the GPU surface back to the decoder right away
+    av_frame_unref(frame);
+    if (ret < 0 || !nv12ToYuv420p(m_hwTransferFrame, frame)) {
+        if (!m_hwErrorLogged) {
+            m_hwErrorLogged = true;
+            qCritical("Could not copy the hardware decoded frame (%d), choose software decoding if the picture stays black", ret);
+        }
+        av_frame_unref(m_hwTransferFrame);
+        return false;
+    }
+    av_frame_unref(m_hwTransferFrame);
+    return true;
 }
 
 void Decoder::onVideoSessionChanged(const QSize &size)
@@ -88,6 +175,9 @@ bool Decoder::push(const AVPacket *packet)
     }
     if (decodingFrame) {
         ret = avcodec_receive_frame(m_codecCtx, decodingFrame);
+    }
+    if (!ret && decodingFrame->format == m_hwPixFmt && !downloadHardwareFrame(decodingFrame)) {
+        return true;
     }
     if (!ret) {
         // a frame was received

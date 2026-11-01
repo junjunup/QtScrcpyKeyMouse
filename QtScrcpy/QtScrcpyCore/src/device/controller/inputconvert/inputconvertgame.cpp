@@ -1,5 +1,9 @@
 #include <QDebug>
 #include <QCursor>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMetaEnum>
 #include <QGuiApplication>
 #include <QTimer>
 #include <QTime>
@@ -29,25 +33,32 @@ InputConvertGame::InputConvertGame(Controller *controller) : InputConvertNormal(
     connect(m_ctrlSteerWheel.releaseTimer, &QTimer::timeout, this, &InputConvertGame::onSteerWheelReleaseTimer);
 }
 
-InputConvertGame::~InputConvertGame() {}
+InputConvertGame::~InputConvertGame()
+{
+    // a new keymap replaces this one while mapping may be on: leave no finger
+    // on the screen and give the cursor back
+    if (m_gameMap) {
+        releaseFingers();
+    }
+    m_gameMap = false;
+    updateCursorState();
+}
 
 void InputConvertGame::mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize)
 {
     // 处理开关按键
-    if (m_keyMap.isSwitchOnKeyboard() == false && m_keyMap.getSwitchKey() == static_cast<int>(from->button())) {
+    if (m_keyMap->isSwitchOnKeyboard() == false && m_keyMap->getSwitchKey() == static_cast<int>(from->button())) {
         if (from->type() != QEvent::MouseButtonPress) {
             return;
         }
-        if (!switchGameMap()) {
-            m_needBackMouseMove = false;
-        }
+        switchGameMap();
         return;
     }
 
     if (!m_needBackMouseMove && m_gameMap) {
         updateSize(frameSize, showSize);
         // mouse move
-        if (m_keyMap.isValidMouseMoveMap()) {
+        if (m_keyMap->isValidMouseMoveMap()) {
             if (processMouseMove(from)) {
                 return;
             }
@@ -72,17 +83,15 @@ void InputConvertGame::wheelEvent(const QWheelEvent *from, const QSize &frameSiz
 void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize)
 {
     // 处理开关按键
-    if (m_keyMap.isSwitchOnKeyboard() && m_keyMap.getSwitchKey() == from->key()) {
+    if (m_keyMap->isSwitchOnKeyboard() && m_keyMap->getSwitchKey() == from->key()) {
         if (QEvent::KeyPress != from->type()) {
             return;
         }
-        if (!switchGameMap()) {
-            m_needBackMouseMove = false;
-        }
+        switchGameMap();
         return;
     }
 
-    const KeyMap::KeyMapNode &node = m_keyMap.getKeyMapNodeKey(from->key());
+    const KeyMap::KeyMapNode &node = m_keyMap->getKeyMapNodeKey(from->key());
     // 处理特殊按键：可以释放出鼠标的按键
     if (m_needBackMouseMove && KeyMap::KMT_CLICK == node.type && node.data.click.switchMap) {
         updateSize(frameSize, showSize);
@@ -96,16 +105,32 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
         if (!from || from->isAutoRepeat()) {
             return;
         }
+        const bool press = QEvent::KeyPress == from->type();
+        if (press) {
+            m_heldKeys.insert(from->key());
+        } else {
+            m_heldKeys.remove(from->key());
+        }
+
+        // scene hot key: switch to that scene, or back to the first one
+        for (int i = 0; i < m_scenes.size(); ++i) {
+            if (m_scenes[i].hotKey != Qt::Key_unknown && m_scenes[i].hotKey == from->key()) {
+                if (press) {
+                    switchScene(i == m_currentScene ? 0 : i);
+                }
+                return;
+            }
+        }
 
         // walk/sprint modifier of the steer wheel
-        if (m_keyMap.isValidSteerWheelMap() && from->key() != Qt::Key_unknown
-            && from->key() == m_keyMap.getSteerWheelMap().data.steerWheel.modifierKey) {
+        if (m_keyMap->isValidSteerWheelMap() && from->key() != Qt::Key_unknown
+            && from->key() == m_keyMap->getSteerWheelMap().data.steerWheel.modifierKey) {
             processSteerWheelModifier(from);
             return;
         }
 
         // small eyes
-        if (m_keyMap.isValidMouseMoveMap() && from->key() == m_keyMap.getMouseMoveMap().data.mouseMove.smallEyes.key) {
+        if (m_keyMap->isValidMouseMoveMap() && from->key() == m_keyMap->getMouseMoveMap().data.mouseMove.smallEyes.key) {
             m_ctrlMouseMove.smallEyes = (QEvent::KeyPress == from->type());
 
             if (QEvent::KeyPress == from->type()) {
@@ -125,34 +150,48 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
             return;
         }
 
-        switch (node.type) {
-        // 处理方向盘
-        case KeyMap::KMT_STEER_WHEEL:
-            processSteerWheel(node, from);
-            return;
-        // 处理普通按键
-        case KeyMap::KMT_CLICK:
-            processKeyClick(node.data.click.keyNode.pos, false, node.data.click.switchMap, from);
-            processAndroidKey(node.data.click.keyNode.androidKey, from);
-            return;
-        case KeyMap::KMT_CLICK_TWICE:
-            processKeyClick(node.data.clickTwice.keyNode.pos, true, false, from);
-            processAndroidKey(node.data.clickTwice.keyNode.androidKey, from);
-            return;
-        case KeyMap::KMT_CLICK_MULTI:
-            processKeyClickMulti(node.data.clickMulti.keyNode.delayClickNodes, node.data.clickMulti.keyNode.delayClickNodesCount, from);
-            return;
-        case KeyMap::KMT_DRAG:
-            processKeyDrag(node.data.drag.keyNode.pos, node.data.drag.keyNode.extendPos,
-                         node.data.drag.startDelay, node.data.drag.dragSpeed, from);
-            return;
-        case KeyMap::KMT_ANDROID_KEY:
-            processAndroidKey(node.data.androidKey.keyNode.androidKey, from);
-        default:
-            break;
+        processKeyNode(node, from);
+
+        // e.g. "get in the car": the tap is done, now use the driving keys
+        if (!press) {
+            const int target = m_scenes.value(m_currentScene).switchKeys.value(from->key(), -1);
+            if (target >= 0) {
+                switchScene(target);
+            }
         }
     } else {
         InputConvertNormal::keyEvent(from, frameSize, showSize);
+    }
+}
+
+void InputConvertGame::processKeyNode(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+{
+    switch (node.type) {
+    // 处理方向盘
+    case KeyMap::KMT_STEER_WHEEL:
+        processSteerWheel(node, from);
+        break;
+    // 处理普通按键
+    case KeyMap::KMT_CLICK:
+        processKeyClick(node.data.click.keyNode.pos, false, node.data.click.switchMap, from);
+        processAndroidKey(node.data.click.keyNode.androidKey, from);
+        break;
+    case KeyMap::KMT_CLICK_TWICE:
+        processKeyClick(node.data.clickTwice.keyNode.pos, true, false, from);
+        processAndroidKey(node.data.clickTwice.keyNode.androidKey, from);
+        break;
+    case KeyMap::KMT_CLICK_MULTI:
+        processKeyClickMulti(node.data.clickMulti.keyNode.delayClickNodes, node.data.clickMulti.keyNode.delayClickNodesCount, from);
+        break;
+    case KeyMap::KMT_DRAG:
+        processKeyDrag(node.data.drag.keyNode.pos, node.data.drag.keyNode.extendPos,
+                       node.data.drag.startDelay, node.data.drag.dragSpeed, from);
+        break;
+    case KeyMap::KMT_ANDROID_KEY:
+        processAndroidKey(node.data.androidKey.keyNode.androidKey, from);
+        break;
+    default:
+        break;
     }
 }
 
@@ -163,13 +202,155 @@ bool InputConvertGame::isCurrentCustomKeymap()
 
 void InputConvertGame::loadKeyMap(const QString &json)
 {
-    m_keyMap.loadKeyMap(json);
+    for (const Scene &scene : m_scenes) {
+        delete scene.map;
+    }
+    m_scenes.clear();
+    m_currentScene = 0;
+
+    const QJsonObject root = QJsonDocument::fromJson(json.toUtf8()).object();
+    const QMetaEnum metaKey = QMetaEnum::fromType<Qt::Key>();
+    auto keyValue = [&metaKey](const QJsonValue &value) {
+        bool ok = false;
+        const int key = metaKey.keyToValue(value.toString().toLatin1().constData(), &ok);
+        return ok ? key : static_cast<int>(Qt::Key_unknown);
+    };
+
+    // the root is the first scene; "scenes" adds more, each a keymap of its own
+    // that shares switchKey and, unless it sets its own, the root mouseMoveMap
+    QVector<QJsonObject> sceneObjects;
+    sceneObjects.append(root);
+    const QJsonArray extra = root.value("scenes").toArray();
+    for (int i = 0; i < extra.size(); ++i) {
+        QJsonObject scene = extra.at(i).toObject();
+        scene.insert("switchKey", root.value("switchKey"));
+        if (!scene.contains("mouseMoveMap")) {
+            if (root.value("mouseMoveMap").isObject()) {
+                scene.insert("mouseMoveMap", root.value("mouseMoveMap"));
+            }
+        } else if (!scene.value("mouseMoveMap").isObject()) {
+            // "mouseMoveMap": false turns mouse look off in this scene
+            scene.remove("mouseMoveMap");
+        }
+        sceneObjects.append(scene);
+    }
+
+    for (int i = 0; i < sceneObjects.size(); ++i) {
+        const QJsonObject &obj = sceneObjects.at(i);
+        Scene scene;
+        scene.name = obj.value("name").toString();
+        if (scene.name.isEmpty()) {
+            scene.name = i == 0 ? QString("default") : QString("scene %1").arg(i + 1);
+        }
+        scene.hotKey = keyValue(obj.value("hotKey"));
+        scene.map = new KeyMap(this);
+        // the root is passed as is so a broken file still reports its own errors
+        scene.map->loadKeyMap(i == 0 ? json : QString::fromUtf8(QJsonDocument(obj).toJson()));
+        m_scenes.append(scene);
+    }
+
+    for (int i = 0; i < sceneObjects.size(); ++i) {
+        const QJsonArray nodes = sceneObjects.at(i).value("keyMapNodes").toArray();
+        for (int j = 0; j < nodes.size(); ++j) {
+            const QJsonObject node = nodes.at(j).toObject();
+            if (!node.contains("switchScene")) {
+                continue;
+            }
+            const int target = findScene(node.value("switchScene").toString());
+            const int key = keyValue(node.value("key"));
+            if (target < 0 || key == Qt::Key_unknown) {
+                qWarning() << "json error: switchScene" << node.value("switchScene").toString() << "needs an existing scene and a keyboard key";
+                continue;
+            }
+            m_scenes[i].switchKeys.insert(key, target);
+        }
+    }
+
+    m_keyMap = m_scenes.first().map;
+    if (m_scenes.size() > 1) {
+        qInfo() << "keymap scenes:" << m_scenes.size();
+    }
+}
+
+int InputConvertGame::findScene(const QString &name) const
+{
+    for (int i = 0; i < m_scenes.size(); ++i) {
+        if (m_scenes[i].name == name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void InputConvertGame::switchScene(int index)
+{
+    if (index < 0 || index >= m_scenes.size() || index == m_currentScene) {
+        return;
+    }
+    releaseFingers();
+    m_currentScene = index;
+    m_keyMap = m_scenes[index].map;
+    m_needBackMouseMove = false;
+    updateCursorState();
+    qInfo() << "keymap scene:" << m_scenes[index].name;
+
+    // keys still held (W while getting in the car) act in the new scene right away
+    const QList<int> held = m_heldKeys.values();
+    for (int key : held) {
+        bool hotKey = key == m_keyMap->getSwitchKey();
+        for (const Scene &scene : m_scenes) {
+            hotKey = hotKey || scene.hotKey == key;
+        }
+        if (!hotKey) {
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+            keyEvent(&press, m_frameSize, m_showSize);
+        }
+    }
+}
+
+void InputConvertGame::releaseInput()
+{
+    releaseFingers();
+    m_heldKeys.clear();
+}
+
+void InputConvertGame::releaseFingers()
+{
+    m_ctrlSteerWheel.keys = {};
+    m_ctrlSteerWheel.modifier = false;
+    steerWheelTouchUp();
+
+    stopMouseMoveTimer();
+    mouseMoveStopTouch();
+    m_ctrlMouseMove.smallEyes = false;
+    m_processMouseMove = true;
+
+    if (m_dragDelayData.timer) {
+        m_dragDelayData.timer->stop();
+        delete m_dragDelayData.timer;
+        m_dragDelayData.timer = nullptr;
+        m_dragDelayData.queuePos.clear();
+        m_dragDelayData.queueTimer.clear();
+        m_dragDelayData.pressKey = 0;
+    }
+
+    // every other finger (held taps, swipes, mouse buttons) goes up where it is
+    for (int i = 0; i < MULTI_TOUCH_MAX_NUM; ++i) {
+        if (0 == m_multiTouchID[i] || m_frameSize.isEmpty()) {
+            m_multiTouchID[i] = 0;
+            continue;
+        }
+        const QPointF pos(static_cast<qreal>(m_lastTouchPos[i].x()) / m_frameSize.width(),
+                          static_cast<qreal>(m_lastTouchPos[i].y()) / m_frameSize.height());
+        sendTouchUpEvent(i, pos);
+        m_multiTouchID[i] = 0;
+    }
 }
 
 void InputConvertGame::updateSize(const QSize &frameSize, const QSize &showSize)
 {
     if (showSize != m_showSize) {
-        if (m_gameMap && m_keyMap.isValidMouseMoveMap()) {
+        if (m_cursorGrabbed) {
 #ifdef QT_NO_DEBUG
             // show size change, resize grab cursor
             emit grabCursor(true);
@@ -353,7 +534,7 @@ void InputConvertGame::processSteerWheelModifier(const QKeyEvent *from)
 {
     m_ctrlSteerWheel.modifier = from->type() == QEvent::KeyPress;
     if (m_ctrlSteerWheel.keys.pressedCount() > 0) {
-        retargetSteerWheel(m_keyMap.getSteerWheelMap());
+        retargetSteerWheel(m_keyMap->getSteerWheelMap());
     }
 }
 
@@ -416,7 +597,7 @@ void InputConvertGame::processKeyClick(const QPointF &clickPos, bool clickTwice,
 {
     if (switchMap && QEvent::KeyRelease == from->type()) {
         m_needBackMouseMove = !m_needBackMouseMove;
-        hideMouseCursor(!m_needBackMouseMove);
+        updateCursorState();
     }
 
     if (QEvent::KeyPress == from->type()) {
@@ -430,6 +611,10 @@ void InputConvertGame::processKeyClick(const QPointF &clickPos, bool clickTwice,
         if (clickTwice) {
             int id = attachTouchID(from->key());
             sendTouchDownEvent(id, clickPos);
+        }
+        // the finger was already lifted (focus lost, scene switched)
+        if (getTouchID(from->key()) < 0) {
+            return;
         }
         sendTouchUpEvent(getTouchID(from->key()), clickPos);
         detachTouchID(from->key());
@@ -564,7 +749,7 @@ void InputConvertGame::processAndroidKey(AndroidKeycode androidKey, const QKeyEv
 
 bool InputConvertGame::processMouseClick(const QMouseEvent *from)
 {
-    const KeyMap::KeyMapNode &node = m_keyMap.getKeyMapNodeMouse(from->button());
+    const KeyMap::KeyMapNode &node = m_keyMap->getKeyMapNodeMouse(from->button());
     if (KeyMap::KMT_INVALID == node.type) {
         return false;
     }
@@ -576,6 +761,9 @@ bool InputConvertGame::processMouseClick(const QMouseEvent *from)
     }
     if (QEvent::MouseButtonRelease == from->type()) {
         int id = getTouchID(from->button());
+        if (id < 0) {
+            return true;
+        }
         sendTouchUpEvent(id, node.data.click.keyNode.pos);
         detachTouchID(from->button());
         return true;
@@ -603,7 +791,7 @@ bool InputConvertGame::processMouseMove(const QMouseEvent *from)
 
     if (!lastPos.isNull() && m_processMouseMove) {
         QPointF distance_raw{m_ctrlMouseMove.lastPos - lastPos};
-        QPointF speedRatio  {m_keyMap.getMouseMoveMap().data.mouseMove.speedRatio};
+        QPointF speedRatio  {m_keyMap->getMouseMoveMap().data.mouseMove.speedRatio};
         gamemap::Vec2 delta { distance_raw.x() / speedRatio.x() / m_showSize.width(),
                               distance_raw.y() / speedRatio.y() / m_showSize.height() };
 
@@ -641,7 +829,7 @@ void InputConvertGame::applyViewOps(const std::vector<gamemap::TouchOp> &ops)
 void InputConvertGame::scheduleViewRecenter()
 {
     quint32 serial = m_ctrlMouseMove.recenterSerial;
-    QTimer::singleShot(m_keyMap.getMouseMoveMap().data.mouseMove.recenterDelayMs, this, [this, serial]() {
+    QTimer::singleShot(m_keyMap->getMouseMoveMap().data.mouseMove.recenterDelayMs, this, [this, serial]() {
         if (serial != m_ctrlMouseMove.recenterSerial || !m_gameMap) {
             return;
         }
@@ -707,7 +895,11 @@ void InputConvertGame::moveCursorTo(const QMouseEvent *from, const QPoint &local
 void InputConvertGame::mouseMoveStartTouch(const QMouseEvent *from)
 {
     Q_UNUSED(from)
-    const auto &mouseMove = m_keyMap.getMouseMoveMap().data.mouseMove;
+    // a delayed call can arrive after a switch to a scene without mouse look
+    if (!m_keyMap->isValidMouseMoveMap()) {
+        return;
+    }
+    const auto &mouseMove = m_keyMap->getMouseMoveMap().data.mouseMove;
     auto &tracker = m_ctrlMouseMove.tracker;
     if (tracker.touching() || tracker.waitingRecenter()) {
         return;
@@ -727,7 +919,10 @@ void InputConvertGame::mouseMoveStopTouch()
 void InputConvertGame::startMouseMoveTimer()
 {
     stopMouseMoveTimer();
-    quint32 autoReleaseMs = m_keyMap.getMouseMoveMap().data.mouseMove.autoReleaseMs;
+    if (!m_keyMap->isValidMouseMoveMap()) {
+        return;
+    }
+    quint32 autoReleaseMs = m_keyMap->getMouseMoveMap().data.mouseMove.autoReleaseMs;
     if (autoReleaseMs > 0) {
         m_ctrlMouseMove.timer = startTimer(static_cast<int>(autoReleaseMs));
     }
@@ -747,27 +942,30 @@ bool InputConvertGame::switchGameMap()
     qInfo() << QString("current keymap mode: %1").arg(m_gameMap ? "custom" : "normal");
 
     if (!m_gameMap) {
-        // don't leave the joystick finger on the screen
-        m_ctrlSteerWheel.keys = {};
-        m_ctrlSteerWheel.modifier = false;
-        steerWheelTouchUp();
+        // don't leave any finger on the screen
+        releaseFingers();
+        m_heldKeys.clear();
+        m_needBackMouseMove = false;
     }
-
-    if (!m_keyMap.isValidMouseMoveMap()) {
-        return m_gameMap;
-    }
-#ifdef QT_NO_DEBUG
-    // grab cursor and set cursor only mouse move map
-    emit grabCursor(m_gameMap);
-#endif
-    hideMouseCursor(m_gameMap);
-
-    if (!m_gameMap) {
-        stopMouseMoveTimer();
-        mouseMoveStopTouch();
-    }
-
+    updateCursorState();
     return m_gameMap;
+}
+
+void InputConvertGame::updateCursorState()
+{
+    const bool grab = m_gameMap && m_keyMap && m_keyMap->isValidMouseMoveMap();
+    const bool hide = grab && !m_needBackMouseMove;
+    if (grab != m_cursorGrabbed) {
+        m_cursorGrabbed = grab;
+#ifdef QT_NO_DEBUG
+        emit grabCursor(grab);
+#endif
+    }
+    // the override cursor is a stack: push and pop exactly once each
+    if (hide != m_cursorHidden) {
+        m_cursorHidden = hide;
+        hideMouseCursor(hide);
+    }
 }
 
 void InputConvertGame::hideMouseCursor(bool hide)

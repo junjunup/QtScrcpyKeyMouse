@@ -25,6 +25,9 @@ public:
     {
         return false;
     }
+    // lift every finger and forget held keys, e.g. when the window loses focus
+    // and the key releases will never arrive
+    virtual void releaseInput() {}
 
 signals:
     void grabCursor(bool grab);

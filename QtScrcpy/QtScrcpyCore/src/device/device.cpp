@@ -62,7 +62,7 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
                 for (const auto& item : m_deviceObservers) {
                     item->onFrame(width, height, dataY, dataU, dataV, linesizeY, linesizeU, linesizeV);
                 }
-            }, this);
+            }, m_params.decodeMode == MODE_FFMPEG_HW, this);
         }
         if (m_decoder) {
             m_decoder->setRenderExpiredFrames(m_params.renderExpiredFrames);
@@ -836,6 +836,13 @@ void Device::keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize
 
     for (const auto& item : m_deviceObservers) {
         item->keyEvent(from, frameSize, showSize);
+    }
+}
+
+void Device::releaseInput()
+{
+    if (m_controller) {
+        m_controller->releaseInput();
     }
 }
 

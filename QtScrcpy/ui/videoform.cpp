@@ -953,6 +953,19 @@ void VideoForm::keyReleaseEvent(QKeyEvent *event)
     emit device->keyEvent(event, m_frameSize, widgetSize);
 }
 
+void VideoForm::changeEvent(QEvent *event)
+{
+    // key releases go to the window that has focus now (Alt+Tab, a click elsewhere),
+    // so a held W would keep its finger on the joystick forever
+    if (event->type() == QEvent::ActivationChange && !isActiveWindow()) {
+        auto device = qsc::IDeviceManage::getInstance().getDevice(m_serial);
+        if (device) {
+            device->releaseInput();
+        }
+    }
+    QWidget::changeEvent(event);
+}
+
 void VideoForm::paintEvent(QPaintEvent *paint)
 {
     Q_UNUSED(paint)

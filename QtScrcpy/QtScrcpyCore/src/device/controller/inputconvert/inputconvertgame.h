@@ -1,8 +1,11 @@
 #ifndef INPUTCONVERTGAME_H
 #define INPUTCONVERTGAME_H
 
+#include <QHash>
 #include <QPointF>
 #include <QQueue>
+#include <QSet>
+#include <QVector>
 
 #include "inputconvertnormal.h"
 #include "gamemapcore.h"
@@ -20,6 +23,7 @@ public:
     virtual void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize);
     virtual void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize);
     virtual bool isCurrentCustomKeymap();
+    virtual void releaseInput();
 
     void loadKeyMap(const QString &json);
 
@@ -43,6 +47,15 @@ protected:
     void processSteerWheelModifier(const QKeyEvent *from);
     void retargetSteerWheel(const KeyMap::KeyMapNode &node);
     void steerWheelTouchUp();
+
+    void processKeyNode(const KeyMap::KeyMapNode &node, const QKeyEvent *from);
+
+    // scenes
+    int findScene(const QString &name) const;
+    void switchScene(int index);
+    void releaseFingers();
+    // grab and hide the cursor only while the current scene has mouse look
+    void updateCursorState();
 
     // click
     void processKeyClick(const QPointF &clickPos, bool clickTwice, bool switchMap, const QKeyEvent *from);
@@ -92,7 +105,23 @@ private:
     int m_multiTouchID[MULTI_TOUCH_MAX_NUM] = { 0 };
     // last sent position per finger, to skip duplicate MOVE events
     QPoint m_lastTouchPos[MULTI_TOUCH_MAX_NUM];
-    KeyMap m_keyMap;
+    // keymap of the current scene, owned by m_scenes
+    KeyMap *m_keyMap = nullptr;
+
+    struct Scene
+    {
+        QString name;
+        int hotKey = Qt::Key_unknown;
+        KeyMap *map = nullptr;
+        // node key -> scene to switch to when that key is released
+        QHash<int, int> switchKeys;
+    };
+    QVector<Scene> m_scenes;
+    int m_currentScene = 0;
+    // keyboard keys held down while mapping, pressed again after a scene switch
+    QSet<int> m_heldKeys;
+    bool m_cursorGrabbed = false;
+    bool m_cursorHidden = false;
 
     bool m_processMouseMove = true;
 

@@ -274,15 +274,23 @@ void Dialog::initUI()
     ui->lockOrientationBox->addItem("270");
     ui->lockOrientationBox->setCurrentIndex(0);
 
-    ui->decodeModeBox->addItem(tr("FFmpeg + OpenGL (Universal Default)"));
-    ui->decodeModeBox->addItem(tr("VideoToolbox + Metal (Apple Silicon Only)"));
+    // the item data is the DecodeMode passed to the device, the saved setting is the index
+#ifdef Q_OS_WIN32
+    // the first item is the default: GPU decoding, software when the GPU cannot
+    ui->decodeModeBox->addItem(tr("Auto (hardware decoding first)"), MODE_FFMPEG_HW);
+    ui->decodeModeBox->addItem(tr("Software decoding (FFmpeg)"), MODE_FFMPEG);
+    ui->decodeModeBox->setToolTip(tr("Hardware decoding uses the graphics card (D3D11VA) and lowers the CPU load at high resolution and frame rate. Takes effect on the next connection."));
+#else
+    ui->decodeModeBox->addItem(tr("FFmpeg + OpenGL (Universal Default)"), MODE_FFMPEG);
+    ui->decodeModeBox->addItem(tr("VideoToolbox + Metal (Apple Silicon Only)"), MODE_VT_METAL);
+#endif
     ui->decodeModeBox->setCurrentIndex(0);
 
-#ifndef Q_OS_MACOS
-    // 非 macOS：隐藏整个解码模式控件行
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN32)
+    // Linux：隐藏整个解码模式控件行
     ui->decodeModeLabel->hide();
     ui->decodeModeBox->hide();
-#elif !defined(__arm64__)
+#elif defined(Q_OS_MACOS) && !defined(__arm64__)
     // Intel Mac：移除 VideoToolbox 选项，用户只看到 FFmpeg
     ui->decodeModeBox->removeItem(1);
 #endif
@@ -898,7 +906,7 @@ void Dialog::on_startServerBtn_clicked()
         params.codecName = Config::getInstance().getCodecName();
     }
     params.scid = QRandomGenerator::global()->bounded(1, 10000) & 0x7FFFFFFF;
-    params.decodeMode = ui->decodeModeBox->currentIndex();
+    params.decodeMode = ui->decodeModeBox->currentData().toInt();
     // Disabled widgets may remain checked from persisted settings. Advanced
     // display options are not valid for camera capture, so never copy them
     // into camera session parameters.
@@ -1270,7 +1278,7 @@ void Dialog::onDeviceConnected(bool success, const QString &serial, const QStrin
     if (!success) {
         return;
     }
-    auto videoForm = new VideoForm(ui->framelessCheck->isChecked(), Config::getInstance().getSkin(), ui->showToolbar->isChecked(), ui->decodeModeBox->currentIndex());
+    auto videoForm = new VideoForm(ui->framelessCheck->isChecked(), Config::getInstance().getSkin(), ui->showToolbar->isChecked(), ui->decodeModeBox->currentData().toInt());
     videoForm->setSerial(serial);
 
     qsc::IDeviceManage::getInstance().getDevice(serial)->setUserData(static_cast<void*>(videoForm));

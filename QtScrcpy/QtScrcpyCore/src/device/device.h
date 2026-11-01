@@ -43,6 +43,7 @@ public:
     void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize) override;
     void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize) override;
     void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize) override;
+    void releaseInput() override;
 
     void postGoBack() override;
     void postGoHome() override;

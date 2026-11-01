@@ -52,6 +52,7 @@ public:
     void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize);
     void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize);
     void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize);
+    void releaseInput();
 
     // turn the screen on if it was off, press BACK otherwise
     // If the screen is off, it is turned on only on down

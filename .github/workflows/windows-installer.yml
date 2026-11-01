@@ -17,6 +17,8 @@ jobs:
     runs-on: windows-2022
     env:
       publish-name: QtScrcpyKeyMouse
+      # sha256 of ffmpeg-4.4.1-full_build-shared.zip, checked when set
+      FFMPEG_HW_SHA256: ""
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +56,25 @@ jobs:
           call "%ENV_VCVARSALL%" x64 || exit /b 1
           cl /nologo /EHsc /W3 /WX /I src\device\controller\inputconvert\keymap test\gamemapcore_test.cpp src\device\controller\inputconvert\keymap\gamemapcore.cpp /Fe:gamemapcore_test.exe || exit /b 1
           gamemapcore_test.exe || exit /b 1
+
+      - name: FFmpeg with hardware decoding
+        shell: pwsh
+        run: |
+          # The bundled FFmpeg 4.4 DLLs are built with --disable-everything: no
+          # D3D11VA/DXVA2 and no threads. This build of the same version (same DLL
+          # names and ABI) has both; it only replaces the DLLs that get shipped.
+          $url = "https://github.com/GyanD/codexffmpeg/releases/download/4.4.1/ffmpeg-4.4.1-full_build-shared.zip"
+          Invoke-WebRequest -UseBasicParsing -OutFile ffmpeg-hw.zip -Uri $url
+          $hash = (Get-FileHash ffmpeg-hw.zip -Algorithm SHA256).Hash
+          echo "ffmpeg-hw.zip sha256: $hash"
+          if ($env:FFMPEG_HW_SHA256 -and $hash -ne $env:FFMPEG_HW_SHA256) { throw "ffmpeg-hw.zip checksum mismatch" }
+          Expand-Archive ffmpeg-hw.zip -DestinationPath ffmpeg-hw
+          $bin = (Get-ChildItem ffmpeg-hw -Recurse -Directory -Filter bin | Select-Object -First 1).FullName
+          $dst = "QtScrcpy\QtScrcpyCore\src\third_party\ffmpeg\bin\x64"
+          foreach ($dll in "avcodec-58.dll", "avformat-58.dll", "avutil-56.dll", "swscale-5.dll", "swresample-3.dll") {
+            Copy-Item (Join-Path $bin $dll) $dst -Force
+          }
+          if (-not (Select-String -Path "$dst\avcodec-58.dll" -Pattern "h264_d3d11va" -SimpleMatch -Quiet)) { throw "avcodec-58.dll has no d3d11va" }
 
       - name: Build
         shell: cmd

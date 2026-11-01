@@ -106,6 +106,8 @@ set(QSC_DEVICE_SOURCES
     src/device/decoder/avframeconvert.cpp
     src/device/decoder/decoder.h
     src/device/decoder/decoder.cpp
+    src/device/decoder/hwframe.h
+    src/device/decoder/hwframe.cpp
     src/device/decoder/fpscounter.h
     src/device/decoder/fpscounter.cpp
     src/device/decoder/videobuffer.h

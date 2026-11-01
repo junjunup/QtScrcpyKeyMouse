@@ -4,7 +4,9 @@
 /// 解码模式枚举
 enum DecodeMode {
     MODE_FFMPEG = 0,
-    MODE_VT_METAL = 1
+    MODE_VT_METAL = 1,
+    // FFmpeg with D3D11VA/DXVA2 on Windows, software if the GPU path is unavailable
+    MODE_FFMPEG_HW = 2
 };
 
 namespace qsc {
