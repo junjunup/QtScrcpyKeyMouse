@@ -139,7 +139,7 @@ void VideoForm::initUI()
     ft.setBold(true);
     m_fpsLabel->setFont(ft);
     m_fpsLabel->move(5, 15);
-    m_fpsLabel->setMinimumWidth(100);
+    m_fpsLabel->setMinimumWidth(220);
     m_fpsLabel->setStyleSheet(R"(QLabel {color: #00FF00;})");
 
     setMouseTracking(true);
@@ -697,7 +697,8 @@ void VideoForm::updateFPS(quint32 fps)
     if (!m_fpsLabel) {
         return;
     }
-    m_fpsLabel->setText(QString("FPS:%1").arg(fps));
+    // the resolution shows whether the picture is downscaled
+    m_fpsLabel->setText(QString("FPS:%1  %2x%3").arg(fps).arg(m_frameSize.width()).arg(m_frameSize.height()));
 }
 
 void VideoForm::grabCursor(bool grab)

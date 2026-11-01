@@ -52,10 +52,14 @@
 #define COMMON_RECORD_DEF ""
 
 #define COMMON_BITRATE_KEY "BitRate"
-#define COMMON_BITRATE_DEF 2000000
+// 2 Mbps looked blurry in fast games; USB has plenty of room
+#define COMMON_BITRATE_DEF 16000000
 
 #define COMMON_MAX_SIZE_INDEX_KEY "MaxSizeIndex"
-#define COMMON_MAX_SIZE_INDEX_DEF 2
+// "original": no downscaling (1080 caps the long side, so 2400x1080 became 1080x486)
+#define COMMON_MAX_SIZE_INDEX_DEF 5
+// older builds saved 2 Mbps / index 2 as defaults; they are upgraded once
+#define COMMON_VIDEO_DEFAULTS_V2_KEY "VideoDefaultsV2"
 
 #define COMMON_RECORD_FORMAT_INDEX_KEY "RecordFormatIndex"
 #define COMMON_RECORD_FORMAT_INDEX_DEF 0
@@ -271,6 +275,18 @@ UserBootConfig Config::getUserBootConfig()
     config.recordPath = m_userData->value(COMMON_RECORD_KEY, COMMON_RECORD_DEF).toString();
     config.bitRate = m_userData->value(COMMON_BITRATE_KEY, COMMON_BITRATE_DEF).toUInt();
     config.maxSizeIndex = m_userData->value(COMMON_MAX_SIZE_INDEX_KEY, COMMON_MAX_SIZE_INDEX_DEF).toInt();
+    if (!m_userData->value(COMMON_VIDEO_DEFAULTS_V2_KEY, false).toBool()) {
+        if (config.bitRate == 2000000) {
+            config.bitRate = COMMON_BITRATE_DEF;
+        }
+        if (config.maxSizeIndex == 2) {
+            config.maxSizeIndex = COMMON_MAX_SIZE_INDEX_DEF;
+        }
+        m_userData->setValue(COMMON_BITRATE_KEY, config.bitRate);
+        m_userData->setValue(COMMON_MAX_SIZE_INDEX_KEY, config.maxSizeIndex);
+        m_userData->setValue(COMMON_VIDEO_DEFAULTS_V2_KEY, true);
+        m_userData->sync();
+    }
     config.recordFormatIndex = m_userData->value(COMMON_RECORD_FORMAT_INDEX_KEY, COMMON_RECORD_FORMAT_INDEX_DEF).toInt();
     config.lockOrientationIndex = m_userData->value(COMMON_LOCK_ORIENTATION_INDEX_KEY, COMMON_LOCK_ORIENTATION_INDEX_DEF).toInt();
     config.framelessWindow = m_userData->value(COMMON_FRAMELESS_WINDOW_KEY, COMMON_FRAMELESS_WINDOW_DEF).toBool();

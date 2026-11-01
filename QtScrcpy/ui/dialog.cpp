@@ -1781,7 +1781,7 @@ void Dialog::on_codecModeBox_currentIndexChanged(int index)
     if (index == 0) {
         // Default: restore previous settings
         if (m_prevBitRate == 0) {
-            ui->bitRateEdit->setText("2");
+            ui->bitRateEdit->setText("16");
             ui->bitRateBox->setCurrentText("Mbps");
         } else if (m_prevBitRate % 1000000 == 0) {
             ui->bitRateEdit->setText(QString::number(m_prevBitRate / 1000000));
