@@ -17,8 +17,8 @@ jobs:
     runs-on: windows-2022
     env:
       publish-name: QtScrcpyKeyMouse
-      # sha256 of ffmpeg-4.4.1-full_build-shared.zip, checked when set
-      FFMPEG_HW_SHA256: ""
+      # sha256 of ffmpeg-4.4.1-full_build-shared.zip
+      FFMPEG_HW_SHA256: "19F215F18C77A654A2EDACAF4E812478515A965F6F53D0098C5EF545C48C0ADC"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,7 +67,7 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -OutFile ffmpeg-hw.zip -Uri $url
           $hash = (Get-FileHash ffmpeg-hw.zip -Algorithm SHA256).Hash
           echo "ffmpeg-hw.zip sha256: $hash"
-          if ($env:FFMPEG_HW_SHA256 -and $hash -ne $env:FFMPEG_HW_SHA256) { throw "ffmpeg-hw.zip checksum mismatch" }
+          if ($hash -ne $env:FFMPEG_HW_SHA256) { throw "ffmpeg-hw.zip checksum mismatch" }
           Expand-Archive ffmpeg-hw.zip -DestinationPath ffmpeg-hw
           $bin = (Get-ChildItem ffmpeg-hw -Recurse -Directory -Filter bin | Select-Object -First 1).FullName
           $dst = "QtScrcpy\QtScrcpyCore\src\third_party\ffmpeg\bin\x64"
