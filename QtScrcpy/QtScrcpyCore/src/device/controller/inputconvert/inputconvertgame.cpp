@@ -91,6 +91,13 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
         return;
     }
 
+    if (m_gameMap && m_shootKey != Qt::Key_unknown && from->key() == m_shootKey) {
+        if (QEvent::KeyPress == from->type() && !from->isAutoRepeat()) {
+            toggleShooting();
+        }
+        return;
+    }
+
     const KeyMap::KeyMapNode &node = m_keyMap->getKeyMapNodeKey(from->key());
     // 处理特殊按键：可以释放出鼠标的按键
     if (m_needBackMouseMove && KeyMap::KMT_CLICK == node.type && node.data.click.switchMap) {
@@ -267,6 +274,7 @@ void InputConvertGame::loadKeyMap(const QString &json)
     }
 
     m_keyMap = m_scenes.first().map;
+    m_shootKey = keyValue(root.value("shootKey"));
     if (m_scenes.size() > 1) {
         qInfo() << "keymap scenes:" << m_scenes.size();
     }
@@ -293,11 +301,12 @@ void InputConvertGame::switchScene(int index)
     m_needBackMouseMove = false;
     updateCursorState();
     qInfo() << "keymap scene:" << m_scenes[index].name;
+    publishStatus();
 
     // keys still held (W while getting in the car) act in the new scene right away
     const QList<int> held = m_heldKeys.values();
     for (int key : held) {
-        bool hotKey = key == m_keyMap->getSwitchKey();
+        bool hotKey = key == m_keyMap->getSwitchKey() || key == m_shootKey;
         for (const Scene &scene : m_scenes) {
             hotKey = hotKey || scene.hotKey == key;
         }
@@ -306,6 +315,73 @@ void InputConvertGame::switchScene(int index)
             keyEvent(&press, m_frameSize, m_showSize);
         }
     }
+}
+
+void InputConvertGame::toggleShooting()
+{
+    if (!m_keyMap->isValidMouseMoveMap()) {
+        return;
+    }
+    m_needBackMouseMove = !m_needBackMouseMove;
+    if (m_needBackMouseMove) {
+        stopMouseMoveTimer();
+        mouseMoveStopTouch();
+    }
+    updateCursorState();
+    publishStatus();
+}
+
+void InputConvertGame::publishStatus()
+{
+    qsc::KeyMapStatus status;
+    status.customKeymap = true;
+    status.mapping = m_gameMap;
+    status.shooting = m_cursorHidden;
+    if (m_scenes.size() > 1) {
+        status.scene = m_scenes.value(m_currentScene).name;
+    }
+    if (!m_keyMap) {
+        emit keyMapStatusChanged(status);
+        return;
+    }
+
+    const QMetaEnum keys = QMetaEnum::fromType<Qt::Key>();
+    const QMetaEnum buttons = QMetaEnum::fromType<Qt::MouseButtons>();
+    auto add = [&](const QPointF &pos, const KeyMap::KeyNode &keyNode) {
+        const char *name = keyNode.type == KeyMap::AT_MOUSE ? buttons.valueToKey(keyNode.key) : keys.valueToKey(keyNode.key);
+        if (keyNode.type != KeyMap::AT_INVALID && name) {
+            status.hints.append({ pos, QString::fromLatin1(name) });
+        }
+    };
+    for (const KeyMap::KeyMapNode &node : m_keyMap->getKeyMapNodes()) {
+        switch (node.type) {
+        case KeyMap::KMT_CLICK:
+        case KeyMap::KMT_CLICK_TWICE:
+            add(node.data.click.keyNode.pos, node.data.click.keyNode);
+            break;
+        case KeyMap::KMT_CLICK_MULTI:
+            if (node.data.clickMulti.keyNode.delayClickNodesCount > 0) {
+                add(node.data.clickMulti.keyNode.delayClickNodes[0].pos, node.data.clickMulti.keyNode);
+            }
+            break;
+        case KeyMap::KMT_DRAG:
+            add(node.data.drag.keyNode.pos, node.data.drag.keyNode);
+            break;
+        case KeyMap::KMT_STEER_WHEEL: {
+            const auto &wheel = node.data.steerWheel;
+            add(wheel.centerPos - QPointF(0, wheel.up.extendOffset), wheel.up);
+            add(wheel.centerPos + QPointF(0, wheel.down.extendOffset), wheel.down);
+            add(wheel.centerPos - QPointF(wheel.left.extendOffset, 0), wheel.left);
+            add(wheel.centerPos + QPointF(wheel.right.extendOffset, 0), wheel.right);
+        } break;
+        case KeyMap::KMT_MOUSE_MOVE:
+            add(node.data.mouseMove.smallEyes.pos, node.data.mouseMove.smallEyes);
+            break;
+        default:
+            break;
+        }
+    }
+    emit keyMapStatusChanged(status);
 }
 
 void InputConvertGame::releaseInput()
@@ -598,6 +674,7 @@ void InputConvertGame::processKeyClick(const QPointF &clickPos, bool clickTwice,
     if (switchMap && QEvent::KeyRelease == from->type()) {
         m_needBackMouseMove = !m_needBackMouseMove;
         updateCursorState();
+        publishStatus();
     }
 
     if (QEvent::KeyPress == from->type()) {
@@ -948,6 +1025,7 @@ bool InputConvertGame::switchGameMap()
         m_needBackMouseMove = false;
     }
     updateCursorState();
+    publishStatus();
     return m_gameMap;
 }
 

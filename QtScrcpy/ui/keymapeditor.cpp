@@ -36,7 +36,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-#include "config.h"
+#include "foregroundapp.h"
 #include "keymapeditor.h"
 
 namespace {
@@ -451,6 +451,51 @@ void KeyMapModel::setSwitchKey(const QString &key)
     m_root.insert("switchKey", key);
 }
 
+QString KeyMapModel::shootKey() const
+{
+    return m_root.value("shootKey").toString();
+}
+
+void KeyMapModel::setShootKey(const QString &key)
+{
+    if (key.isEmpty()) {
+        m_root.remove("shootKey");
+    } else {
+        m_root.insert("shootKey", key);
+    }
+}
+
+QStringList KeyMapModel::packages() const
+{
+    const QJsonValue value = m_root.value("package");
+    QStringList result;
+    if (value.isString()) {
+        result << value.toString();
+    }
+    const QJsonArray list = value.toArray();
+    for (int i = 0; i < list.size(); ++i) {
+        result << list.at(i).toString();
+    }
+    return result;
+}
+
+void KeyMapModel::setPackages(const QStringList &packages)
+{
+    QStringList clean;
+    for (const QString &package : packages) {
+        if (!package.trimmed().isEmpty() && !clean.contains(package.trimmed())) {
+            clean << package.trimmed();
+        }
+    }
+    if (clean.isEmpty()) {
+        m_root.remove("package");
+    } else if (clean.size() == 1) {
+        m_root.insert("package", clean.first());
+    } else {
+        m_root.insert("package", QJsonArray::fromStringList(clean));
+    }
+}
+
 int KeyMapModel::addItem(const QString &type, const QPointF &at)
 {
     const QPointF pos = clampPos(at);
@@ -785,6 +830,16 @@ QStringList KeyMapModel::problems() const
             result << tr("Scenes %1 share the hot key %2").arg(it.value().join(", "), shortKeyLabel(it.key()));
         }
     }
+    const QString shoot = shootKey();
+    if (!shoot.isEmpty()) {
+        if (!isKeyboardKey(shoot)) {
+            result << tr("The shooting mode key must be a keyboard key");
+        } else if (shoot == switchKeyName) {
+            result << tr("The shooting mode key is also the mapping on/off key");
+        } else if (hotKeys.contains(shoot)) {
+            result << tr("The shooting mode key is also the hot key of scene %1").arg(hotKeys.value(shoot).join(", "));
+        }
+    }
 
     for (int i = 0; i < count; ++i) {
         KeyMapModel scene = *this;
@@ -797,6 +852,9 @@ QStringList KeyMapModel::problems() const
         for (int j = 0; j < scene.m_nodes.size(); ++j) {
             const QJsonObject &node = scene.m_nodes.at(j);
             const QString key = node.value("key").toString();
+            if (!key.isEmpty() && key == shoot) {
+                result << prefix + tr("%1: the key is also the shooting mode key, which wins").arg(scene.itemTitle(j));
+            }
             if (hotKeys.contains(key)) {
                 result << prefix + tr("%1: the key is also the hot key of scene %2, which wins")
                                        .arg(scene.itemTitle(j), hotKeys.value(key).join(", "));
@@ -1431,6 +1489,13 @@ KeyMapEditor::KeyMapEditor(const QString &keymapDir, const QString &defaultDir, 
         m_captureBtn->setEnabled(true);
         QMessageBox::warning(this, windowTitle(), tr("Could not run adb: %1").arg(m_captureProcess->program()));
     });
+    m_packageProcess = new QProcess(this);
+    connect(m_packageProcess, static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), this, &KeyMapEditor::onPackageProcessFinished);
+    connect(m_packageProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            m_fillPackageBtn->setEnabled(true);
+        }
+    });
     m_captureTimeout = new QTimer(this);
     m_captureTimeout->setSingleShot(true);
     m_captureTimeout->setInterval(15000);
@@ -1598,6 +1663,54 @@ void KeyMapEditor::buildUi()
         modelChanged();
     });
     switchForm->addRow(tr("Mapping on/off key:"), m_switchKeyBtn);
+    auto *shootRow = new QHBoxLayout();
+    m_shootKeyBtn = new KeyCaptureButton(side);
+    m_shootKeyBtn->setToolTip(tr("While mapping, switches between shooting mode (the mouse turns the view) and a free cursor that clicks the screen"));
+    connect(m_shootKeyBtn, &KeyCaptureButton::keyCaptured, this, [this](const QString &key) {
+        pushUndo();
+        m_model.setShootKey(key);
+        modelChanged();
+    });
+    shootRow->addWidget(m_shootKeyBtn, 1);
+    QPushButton *clearShootBtn = makeButton(tr("None"), side);
+    connect(clearShootBtn, &QPushButton::clicked, this, [this] {
+        if (m_model.shootKey().isEmpty()) {
+            return;
+        }
+        pushUndo();
+        m_model.setShootKey(QString());
+        modelChanged();
+    });
+    shootRow->addWidget(clearShootBtn);
+    switchForm->addRow(tr("Shooting mode key:"), shootRow);
+    auto *packageRow = new QHBoxLayout();
+    m_packageEdit = new QLineEdit(side);
+    m_packageEdit->setPlaceholderText(tr("package name, e.g. com.example.game"));
+    m_packageEdit->setToolTip(tr("When this game comes to the front, this keymap is loaded automatically. Several packages can be separated by commas."));
+    connect(m_packageEdit, &QLineEdit::editingFinished, this, [this] {
+        if (m_updating) {
+            return;
+        }
+        QStringList packages;
+        const QStringList parts = m_packageEdit->text().split(',');
+        for (const QString &part : parts) {
+            if (!part.trimmed().isEmpty()) {
+                packages << part.trimmed();
+            }
+        }
+        if (packages == m_model.packages()) {
+            return;
+        }
+        pushUndo();
+        m_model.setPackages(packages);
+        modelChanged();
+    });
+    packageRow->addWidget(m_packageEdit, 1);
+    m_fillPackageBtn = makeButton(tr("Current app"), side);
+    m_fillPackageBtn->setToolTip(tr("Fill in the app now in the foreground on the phone"));
+    connect(m_fillPackageBtn, &QPushButton::clicked, this, &KeyMapEditor::onFillPackage);
+    packageRow->addWidget(m_fillPackageBtn);
+    switchForm->addRow(tr("Game:"), packageRow);
     sideLayout->addLayout(switchForm);
 
     sideLayout->addWidget(new QLabel(tr("Keys:"), side));
@@ -2065,20 +2178,35 @@ void KeyMapEditor::setBackground(const QImage &image)
 
 QString KeyMapEditor::resolveAdbPath() const
 {
-    // same order as the adb process of QtScrcpyCore
-    QStringList candidates;
-    candidates << QString::fromLocal8Bit(qgetenv("QTSCRCPY_ADB_PATH")) << Config::getInstance().getAdbPath();
-#ifdef Q_OS_WIN32
-    candidates << QCoreApplication::applicationDirPath() + "/adb.exe";
-#else
-    candidates << QCoreApplication::applicationDirPath() + "/adb";
-#endif
-    for (const QString &path : candidates) {
-        if (!path.isEmpty() && QFileInfo(path).isFile()) {
-            return path;
-        }
+    return adbExecutablePath();
+}
+
+void KeyMapEditor::onFillPackage()
+{
+    if (m_packageProcess->state() != QProcess::NotRunning) {
+        return;
     }
-    return "adb";
+    m_fillPackageBtn->setEnabled(false);
+    m_packageProcess->start(resolveAdbPath(), foregroundAppArgs(m_serial));
+}
+
+void KeyMapEditor::onPackageProcessFinished()
+{
+    m_fillPackageBtn->setEnabled(true);
+    const QString package = parseForegroundPackage(QString::fromUtf8(m_packageProcess->readAllStandardOutput()));
+    if (package.isEmpty()) {
+        QMessageBox::warning(this, windowTitle(), tr("Could not read the app in the foreground. Is the phone connected and the game open?"));
+        return;
+    }
+    QStringList packages = m_model.packages();
+    if (packages.contains(package)) {
+        return;
+    }
+    pushUndo();
+    packages << package;
+    m_model.setPackages(packages);
+    modelChanged();
+    m_statusLabel->setText(tr("%1 added: this keymap is loaded when it comes to the front").arg(package));
 }
 
 void KeyMapEditor::closeEvent(QCloseEvent *event)
@@ -2462,6 +2590,10 @@ void KeyMapEditor::refreshProperties()
 {
     m_updating = true;
     m_switchKeyBtn->setKeyName(m_model.switchKey());
+    m_shootKeyBtn->setKeyName(m_model.shootKey());
+    if (!m_packageEdit->hasFocus()) {
+        m_packageEdit->setText(m_model.packages().join(", "));
+    }
 
     const bool hasSelection = m_model.hasItem(m_selectedItem);
     m_propPanel->setEnabled(hasSelection);
@@ -2475,7 +2607,14 @@ void KeyMapEditor::refreshProperties()
 
     m_keySection->setVisible(hasSelection && !isMouse && !isSteer);
     m_keyBtn->setKeyName(obj.value("key").toString());
-    m_switchSceneRow->setVisible(m_model.sceneCount() > 1);
+    // switching needs a second scene; hide the row's label too
+    const bool canSwitch = m_model.sceneCount() > 1;
+    m_switchSceneRow->setVisible(canSwitch);
+    if (auto *keyForm = qobject_cast<QFormLayout *>(m_keySection->layout())) {
+        if (QWidget *label = keyForm->labelForField(m_switchSceneRow)) {
+            label->setVisible(canSwitch);
+        }
+    }
     m_switchSceneBox->clear();
     m_switchSceneBox->addItem(tr("(stay in this scene)"), QString());
     for (int i = 0; i < m_model.sceneCount(); ++i) {

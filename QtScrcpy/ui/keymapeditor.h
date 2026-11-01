@@ -95,6 +95,12 @@ public:
 
     QString switchKey() const;
     void setSwitchKey(const QString &key);
+    // optional key that locks/frees the cursor for mouse look; empty for none
+    QString shootKey() const;
+    void setShootKey(const QString &key);
+    // packages of the games this keymap is for ("package"), loaded automatically
+    QStringList packages() const;
+    void setPackages(const QStringList &packages);
 
     // returns the id of the new item
     int addItem(const QString &type, const QPointF &pos);
@@ -273,6 +279,8 @@ private slots:
     void onAddScene();
     void onRenameScene();
     void onRemoveScene();
+    void onFillPackage();
+    void onPackageProcessFinished();
     // background of the current scene (a capture or an opened image)
     void setBackground(const QImage &image);
 
@@ -332,6 +340,7 @@ private:
     QVector<QImage> m_backgrounds;
 
     QProcess *m_captureProcess = nullptr;
+    QProcess *m_packageProcess = nullptr;
     QTimer *m_captureTimeout = nullptr;
 
     QComboBox *m_fileBox = nullptr;
@@ -339,6 +348,9 @@ private:
     KeyMapCanvas *m_canvas = nullptr;
     QLabel *m_statusLabel = nullptr;
     KeyCaptureButton *m_switchKeyBtn = nullptr;
+    KeyCaptureButton *m_shootKeyBtn = nullptr;
+    QLineEdit *m_packageEdit = nullptr;
+    QPushButton *m_fillPackageBtn = nullptr;
     QComboBox *m_sceneBox = nullptr;
     QPushButton *m_removeSceneBtn = nullptr;
     KeyCaptureButton *m_sceneHotKeyBtn = nullptr;

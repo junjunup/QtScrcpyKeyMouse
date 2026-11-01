@@ -188,6 +188,8 @@ set(QC_UI_SOURCES
     ui/presetconfigdialog.cpp
     ui/keymapeditor.h
     ui/keymapeditor.cpp
+    ui/keyhintoverlay.h
+    ui/keyhintoverlay.cpp
     render/qyuvopenglwidget.h
     render/qyuvopenglwidget.cpp
 )
@@ -208,6 +210,8 @@ set(QC_UTIL_SOURCES
     util/mousetap/mousetap.cpp
     util/singleinstance.h
     util/singleinstance.cpp
+    util/foregroundapp.h
+    util/foregroundapp.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(QC_UTIL_SOURCES ${QC_UTIL_SOURCES} 

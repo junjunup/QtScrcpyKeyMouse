@@ -24,6 +24,7 @@ public:
     virtual void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize);
     virtual bool isCurrentCustomKeymap();
     virtual void releaseInput();
+    virtual void publishStatus();
 
     void loadKeyMap(const QString &json);
 
@@ -53,6 +54,8 @@ protected:
     // scenes
     int findScene(const QString &name) const;
     void switchScene(int index);
+    // shootKey: lock the cursor for mouse look, or free it to click the screen
+    void toggleShooting();
     void releaseFingers();
     // grab and hide the cursor only while the current scene has mouse look
     void updateCursorState();
@@ -120,6 +123,7 @@ private:
     int m_currentScene = 0;
     // keyboard keys held down while mapping, pressed again after a scene switch
     QSet<int> m_heldKeys;
+    int m_shootKey = Qt::Key_unknown;
     bool m_cursorGrabbed = false;
     bool m_cursorHidden = false;
 

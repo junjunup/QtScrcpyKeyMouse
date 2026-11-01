@@ -939,6 +939,32 @@
               </property>
              </widget>
             </item>
+            <item row="2" column="3">
+             <widget class="QCheckBox" name="keyHintsCheck">
+              <property name="toolTip">
+               <string>draw the mapped keys, the scene and the mouse mode over the video</string>
+              </property>
+              <property name="text">
+               <string>key hints</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="4">
+             <widget class="QCheckBox" name="autoKeymapCheck">
+              <property name="toolTip">
+               <string>load the keymap whose game package matches the app in the foreground</string>
+              </property>
+              <property name="text">
+               <string>keymap per game</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>

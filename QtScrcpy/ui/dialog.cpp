@@ -11,9 +11,13 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QKeyEvent>
 #include <QComboBox>
 #include <QLineEdit>
+#include <QProcess>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRegularExpression>
@@ -33,6 +37,7 @@
 #include "config.h"
 #include "dialog.h"
 #include "keymapeditor.h"
+#include "foregroundapp.h"
 #include "ui_dialog.h"
 #include "videoform.h"
 #include "../groupcontroller/groupcontroller.h"
@@ -131,6 +136,19 @@ Dialog::Dialog(QWidget *parent) : QWidget(parent), ui(new Ui::Widget)
     if (ui->autoUpdatecheckBox->isChecked()) {
         m_autoUpdatetimer.start(5000);
     }
+
+    connect(ui->keyHintsCheck, &QCheckBox::toggled, this, [this](bool show) {
+        auto device = qsc::IDeviceManage::getInstance().getDevice(ui->serialBox->currentText().trimmed());
+        if (device && device->getUserData()) {
+            static_cast<VideoForm *>(device->getUserData())->showKeyHints(show);
+        }
+    });
+
+    // keymap per game: look at the foreground app of the mirrored phone now and then
+    m_foregroundProcess = new QProcess(this);
+    connect(m_foregroundProcess, static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), this, &Dialog::onForegroundAppFinished);
+    connect(&m_foregroundTimer, &QTimer::timeout, this, &Dialog::pollForegroundApp);
+    m_foregroundTimer.start(2500);
 
     connect(&m_adb, &qsc::AdbProcess::adbProcessResult, this, [this](qsc::AdbProcess::ADB_EXEC_RESULT processResult) {
         QString log = "";
@@ -632,6 +650,8 @@ void Dialog::updateBootConfig(bool toView)
         ui->useSingleModeCheck->setChecked(config.simpleMode);
         ui->autoUpdatecheckBox->setChecked(config.autoUpdateDevice);
         ui->autoConnectCheck->setChecked(config.autoConnectUsb);
+        ui->keyHintsCheck->setChecked(config.showKeyHints);
+        ui->autoKeymapCheck->setChecked(config.autoSwitchKeymap);
         selectKeymap(config.keymapName);
         ui->showToolbar->setChecked(config.showToolbar);
         ui->quitOnCloseCheck->setChecked(config.quitOnClose);
@@ -678,6 +698,8 @@ void Dialog::updateBootConfig(bool toView)
         config.simpleMode = ui->useSingleModeCheck->isChecked();
         config.autoUpdateDevice = ui->autoUpdatecheckBox->isChecked();
         config.autoConnectUsb = ui->autoConnectCheck->isChecked();
+        config.showKeyHints = ui->keyHintsCheck->isChecked();
+        config.autoSwitchKeymap = ui->autoKeymapCheck->isChecked();
         if (!ui->gameBox->currentText().isEmpty()) {
             config.keymapName = ui->gameBox->currentText();
         }
@@ -1286,6 +1308,7 @@ void Dialog::onDeviceConnected(bool success, const QString &serial, const QStrin
 
 
     videoForm->showFPS(ui->fpsCheck->isChecked());
+    videoForm->showKeyHints(ui->keyHintsCheck->isChecked());
 
     if (ui->alwaysTopCheck->isChecked()) {
         videoForm->staysOnTop();
@@ -1327,6 +1350,8 @@ void Dialog::onDeviceConnected(bool success, const QString &serial, const QStrin
 void Dialog::onDeviceDisconnected(QString serial)
 {
     GroupController::instance().removeDevice(serial);
+    // a reconnect looks at the foreground app again
+    m_foregroundPackage.clear();
     auto device = qsc::IDeviceManage::getInstance().getDevice(serial);
     if (!device) {
         return;
@@ -1409,6 +1434,64 @@ void Dialog::on_refreshGameScriptBtn_clicked()
         }
     }
     selectKeymap(current);
+    updateKeymapPackages();
+}
+
+void Dialog::updateKeymapPackages()
+{
+    m_keymapPackages.clear();
+    for (int i = 0; i < ui->gameBox->count(); ++i) {
+        const QString fileName = ui->gameBox->itemText(i);
+        const QJsonValue package = QJsonDocument::fromJson(getGameScript(fileName).toUtf8()).object().value("package");
+        QStringList packages;
+        if (package.isString()) {
+            packages << package.toString();
+        }
+        const QJsonArray list = package.toArray();
+        for (int j = 0; j < list.size(); ++j) {
+            packages << list.at(j).toString();
+        }
+        for (const QString &name : packages) {
+            if (!name.trimmed().isEmpty() && !m_keymapPackages.contains(name.trimmed())) {
+                m_keymapPackages.insert(name.trimmed(), fileName);
+            }
+        }
+    }
+}
+
+void Dialog::pollForegroundApp()
+{
+    if (!ui->autoKeymapCheck->isChecked() || m_keymapPackages.isEmpty()
+        || m_foregroundProcess->state() != QProcess::NotRunning) {
+        return;
+    }
+    const QString serial = ui->serialBox->currentText().trimmed();
+    auto device = qsc::IDeviceManage::getInstance().getDevice(serial);
+    if (!device || device->isCameraMode()) {
+        return;
+    }
+    m_foregroundProcess->start(adbExecutablePath(), foregroundAppArgs(serial));
+}
+
+void Dialog::onForegroundAppFinished()
+{
+    const QString package = parseForegroundPackage(QString::fromUtf8(m_foregroundProcess->readAllStandardOutput()));
+    // only act when another app comes to the front, so a keymap picked by hand stays
+    if (package.isEmpty() || package == m_foregroundPackage) {
+        return;
+    }
+    m_foregroundPackage = package;
+    const QString fileName = m_keymapPackages.value(package);
+    if (fileName.isEmpty() || fileName == ui->gameBox->currentText()) {
+        return;
+    }
+    auto device = qsc::IDeviceManage::getInstance().getDevice(ui->serialBox->currentText().trimmed());
+    if (!device) {
+        return;
+    }
+    selectKeymap(fileName);
+    on_applyScriptBtn_clicked();
+    outLog(tr("%1 is in the foreground: keymap %2 loaded, press ~ in the video window to switch key mapping on").arg(package, fileName));
 }
 
 void Dialog::selectKeymap(const QString &fileName)

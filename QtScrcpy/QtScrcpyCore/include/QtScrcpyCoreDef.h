@@ -1,5 +1,7 @@
 #pragma once
+#include <QPointF>
 #include <QString>
+#include <QVector>
 
 /// 解码模式枚举
 enum DecodeMode {
@@ -70,6 +72,21 @@ struct DeviceParams {
     bool renderExpiredFrames = false; // 是否渲染延迟视频帧
     QString gameScript = "";          // 游戏映射脚本
     int decodeMode = 0;               // 0=FFmpeg OpenGL (默认), 1=VideoToolbox Metal (Apple Silicon)
+};
+
+// a key of the current game keymap, for on-screen hints
+struct KeyMapHint {
+    QPointF pos;                      // frame ratio, 0~1
+    QString key;                      // Qt enum name, e.g. "Key_Space" or "LeftButton"
+};
+
+// what the game key mapping is doing right now
+struct KeyMapStatus {
+    bool customKeymap = false;        // a game keymap is loaded
+    bool mapping = false;             // key mapping is on
+    bool shooting = false;            // mouse look has the cursor (shooting mode)
+    QString scene;                    // current scene, empty when the keymap has one
+    QVector<KeyMapHint> hints;        // keys of the current scene
 };
     
 }

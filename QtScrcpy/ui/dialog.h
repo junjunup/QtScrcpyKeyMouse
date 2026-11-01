@@ -8,6 +8,7 @@
 #include <QSystemTrayIcon>
 #include <QListWidget>
 #include <QTimer>
+#include <QHash>
 #include <QSet>
 
 
@@ -29,6 +30,7 @@ class QGroupBox;
 class QPushButton;
 class QSpinBox;
 class KeyMapEditor;
+class QProcess;
 class Dialog : public QWidget
 {
     Q_OBJECT
@@ -63,6 +65,8 @@ private slots:
     void on_refreshGameScriptBtn_clicked();
     void on_applyScriptBtn_clicked();
     void on_keymapEditorBtn_clicked();
+    void pollForegroundApp();
+    void onForegroundAppFinished();
     void on_recordScreenCheck_clicked(bool checked);
     void on_usbConnectBtn_clicked();
     void on_wifiConnectBtn_clicked();
@@ -159,6 +163,13 @@ private:
     // serials auto-connect already tried; cleared when the device is unplugged
     QSet<QString> m_autoConnectTried;
     QPointer<KeyMapEditor> m_keymapEditor;
+
+    // keymap per game: package name -> keymap file, from the "package" field
+    void updateKeymapPackages();
+    QHash<QString, QString> m_keymapPackages;
+    QTimer m_foregroundTimer;
+    QProcess *m_foregroundProcess = nullptr;
+    QString m_foregroundPackage;
     QSet<QString> m_unauthorizedNotified;
     bool m_noDeviceHinted = false;
 };

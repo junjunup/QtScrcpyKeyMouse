@@ -7,6 +7,7 @@
 #include <QWheelEvent>
 
 #include "controlmsg.h"
+#include "QtScrcpyCoreDef.h"
 
 class Controller;
 class InputConvertBase : public QObject
@@ -28,9 +29,12 @@ public:
     // lift every finger and forget held keys, e.g. when the window loses focus
     // and the key releases will never arrive
     virtual void releaseInput() {}
+    // emits keyMapStatusChanged with the current state
+    virtual void publishStatus() { emit keyMapStatusChanged(qsc::KeyMapStatus()); }
 
 signals:
     void grabCursor(bool grab);
+    void keyMapStatusChanged(const qsc::KeyMapStatus &status);
 
 protected:
     void sendControlMsg(ControlMsg *msg);

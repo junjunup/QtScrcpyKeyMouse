@@ -65,6 +65,7 @@ public:
 
 signals:
     void grabCursor(bool grab);
+    void keyMapStatusChanged(const qsc::KeyMapStatus &status);
 
 protected:
     bool event(QEvent *event);

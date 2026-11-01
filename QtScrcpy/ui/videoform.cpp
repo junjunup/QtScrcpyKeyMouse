@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "iconhelper.h"
+#include "keyhintoverlay.h"
 #include "qyuvopenglwidget.h"
 #include "toolform.h"
 #include "mousetap/mousetap.h"
@@ -142,6 +143,10 @@ void VideoForm::initUI()
     m_fpsLabel->setMinimumWidth(220);
     m_fpsLabel->setStyleSheet(R"(QLabel {color: #00FF00;})");
 
+    // key hints over the video, on the same widget as the FPS label
+    m_keyHintOverlay = new KeyHintOverlay(m_fpsLabel->parentWidget());
+    m_fpsLabel->raise();
+
     setMouseTracking(true);
     if (m_videoWidget) {
         m_videoWidget->setMouseTracking(true);
@@ -212,6 +217,20 @@ void VideoForm::showFPS(bool show)
         return;
     }
     m_fpsLabel->setVisible(show);
+}
+
+void VideoForm::showKeyHints(bool show)
+{
+    if (m_keyHintOverlay) {
+        m_keyHintOverlay->setShowHints(show);
+    }
+}
+
+void VideoForm::updateKeyMapStatus(const qsc::KeyMapStatus &status)
+{
+    if (m_keyHintOverlay) {
+        m_keyHintOverlay->setStatus(status);
+    }
 }
 
 void VideoForm::updateRender(int width, int height, uint8_t* dataY, uint8_t* dataU, uint8_t* dataV, int linesizeY, int linesizeU, int linesizeV)

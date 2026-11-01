@@ -17,6 +17,7 @@ class FileHandler;
 class QYUVOpenGLWidget;
 class QLabel;
 class MetalVideoWidget;
+class KeyHintOverlay;
 class VideoForm : public QWidget, public qsc::DeviceObserver
 {
     Q_OBJECT
@@ -33,6 +34,7 @@ public:
     void resizeSquare();
     void removeBlackRect();
     void showFPS(bool show);
+    void showKeyHints(bool show);
     void switchFullScreen();
     bool isHost();
 
@@ -44,6 +46,7 @@ private:
     void updateFPS(quint32 fps) override;
     void onVideoSessionChanged(const QSize &size, bool clientResized) override;
     void grabCursor(bool grab) override;
+    void updateKeyMapStatus(const qsc::KeyMapStatus &status) override;
 
     void updateStyleSheet(bool vertical);
     QMargins getMargins(bool vertical);
@@ -95,6 +98,7 @@ private:
     QPointer<MetalVideoWidget> m_metalWidget;
 
     QPointer<QLabel> m_fpsLabel;
+    QPointer<KeyHintOverlay> m_keyHintOverlay;
 
     //inside member
     QSize m_frameSize;

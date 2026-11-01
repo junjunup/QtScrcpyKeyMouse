@@ -25,6 +25,8 @@ struct UserBootConfig
     bool simpleMode       = false;
     bool autoUpdateDevice = true;
     bool autoConnectUsb   = true;  // start mirroring as soon as a USB device shows up
+    bool showKeyHints     = true;  // draw the mapped keys over the video
+    bool autoSwitchKeymap = true;  // load the keymap made for the game in the foreground
     QString keymapName    = "fps_wasd.json";
     bool showToolbar      = true;
     bool quitOnClose      = false; // quit instead of hiding to the system tray when the main window is closed

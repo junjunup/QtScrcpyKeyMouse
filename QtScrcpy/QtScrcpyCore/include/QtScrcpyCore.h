@@ -38,6 +38,8 @@ public:
         Q_UNUSED(clientResized);
     }
     virtual void grabCursor(bool grab) {Q_UNUSED(grab);}
+    // mapping on/off, shooting mode or scene changed
+    virtual void updateKeyMapStatus(const KeyMapStatus &status) { Q_UNUSED(status); }
 
     virtual void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize) {
         Q_UNUSED(from);

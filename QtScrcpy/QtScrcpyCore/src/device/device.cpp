@@ -227,6 +227,11 @@ void Device::initSignals()
                 item->grabCursor(grab);
             }
         });
+        connect(m_controller, &Controller::keyMapStatusChanged, this, [this](const qsc::KeyMapStatus &status) {
+            for (const auto& item : m_deviceObservers) {
+                item->updateKeyMapStatus(status);
+            }
+        });
     }
     if (m_fileHandler) {
         connect(m_fileHandler, &FileHandler::fileHandlerResult, this, [this](FileHandler::FILE_HANDLER_RESULT processResult, bool isApk) {

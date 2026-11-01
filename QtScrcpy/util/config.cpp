@@ -100,6 +100,12 @@
 #define COMMON_AUTO_CONNECT_USB_KEY "AutoConnectUsb"
 #define COMMON_AUTO_CONNECT_USB_DEF true
 
+#define COMMON_SHOW_KEY_HINTS_KEY "ShowKeyHints"
+#define COMMON_SHOW_KEY_HINTS_DEF true
+
+#define COMMON_AUTO_SWITCH_KEYMAP_KEY "AutoSwitchKeymap"
+#define COMMON_AUTO_SWITCH_KEYMAP_DEF true
+
 #define COMMON_KEYMAP_NAME_KEY "KeymapName"
 #define COMMON_KEYMAP_NAME_DEF "fps_wasd.json"
 
@@ -245,6 +251,8 @@ void Config::setUserBootConfig(const UserBootConfig &config)
     m_userData->setValue(COMMON_SIMPLE_MODE_KEY, config.simpleMode);
     m_userData->setValue(COMMON_AUTO_UPDATE_DEVICE_KEY, config.autoUpdateDevice);
     m_userData->setValue(COMMON_AUTO_CONNECT_USB_KEY, config.autoConnectUsb);
+    m_userData->setValue(COMMON_SHOW_KEY_HINTS_KEY, config.showKeyHints);
+    m_userData->setValue(COMMON_AUTO_SWITCH_KEYMAP_KEY, config.autoSwitchKeymap);
     m_userData->setValue(COMMON_KEYMAP_NAME_KEY, config.keymapName);
     m_userData->setValue(COMMON_SHOW_TOOLBAR_KEY, config.showToolbar);
     m_userData->setValue(COMMON_QUIT_ON_CLOSE_KEY, config.quitOnClose);
@@ -300,6 +308,8 @@ UserBootConfig Config::getUserBootConfig()
     config.simpleMode = m_userData->value(COMMON_SIMPLE_MODE_KEY, COMMON_SIMPLE_MODE_DEF).toBool();
     config.autoUpdateDevice = m_userData->value(COMMON_AUTO_UPDATE_DEVICE_KEY, COMMON_AUTO_UPDATE_DEVICE_DEF).toBool();
     config.autoConnectUsb = m_userData->value(COMMON_AUTO_CONNECT_USB_KEY, COMMON_AUTO_CONNECT_USB_DEF).toBool();
+    config.showKeyHints = m_userData->value(COMMON_SHOW_KEY_HINTS_KEY, COMMON_SHOW_KEY_HINTS_DEF).toBool();
+    config.autoSwitchKeymap = m_userData->value(COMMON_AUTO_SWITCH_KEYMAP_KEY, COMMON_AUTO_SWITCH_KEYMAP_DEF).toBool();
     config.keymapName = m_userData->value(COMMON_KEYMAP_NAME_KEY, COMMON_KEYMAP_NAME_DEF).toString();
     config.showToolbar =m_userData->value(COMMON_SHOW_TOOLBAR_KEY,COMMON_SHOW_TOOLBAR_DEF).toBool();
     config.quitOnClose = m_userData->value(COMMON_QUIT_ON_CLOSE_KEY, COMMON_QUIT_ON_CLOSE_DEF).toBool();

@@ -77,6 +77,8 @@ void Controller::updateScript(QString gameScript)
     }
     Q_ASSERT(m_inputConvert);
     connect(m_inputConvert, &InputConvertBase::grabCursor, this, &Controller::grabCursor);
+    connect(m_inputConvert, &InputConvertBase::keyMapStatusChanged, this, &Controller::keyMapStatusChanged);
+    m_inputConvert->publishStatus();
 }
 
 bool Controller::isCurrentCustomKeymap()

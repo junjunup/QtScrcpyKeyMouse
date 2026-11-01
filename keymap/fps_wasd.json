@@ -1,5 +1,6 @@
 {
     "switchKey": "Key_QuoteLeft",
+    "package": "com.tencent.tmgp.pubgmhd",
     "mouseMoveMap": {
         "startPos": {
             "x": 0.57,

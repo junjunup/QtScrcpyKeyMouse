@@ -335,6 +335,10 @@
         <source>Hardware decoding uses the graphics card (D3D11VA) and lowers the CPU load at high resolution and frame rate. Takes effect on the next connection.</source>
         <translation>硬件解码用显卡 (D3D11VA) 解码，在高分辨率、高帧率下降低 CPU 占用。下次连接时生效。</translation>
     </message>
+    <message>
+        <source>%1 is in the foreground: keymap %2 loaded, press ~ in the video window to switch key mapping on</source>
+        <translation>检测到前台应用 %1：已加载按键配置 %2，在投屏窗口按 ~ 开启键鼠映射</translation>
+    </message>
 </context>
 <context>
     <name>KeyCaptureButton</name>
@@ -349,6 +353,37 @@
     <message>
         <source>(not set, click to record)</source>
         <translation>（未设置，点击录入）</translation>
+    </message>
+</context>
+<context>
+    <name>KeyHintOverlay</name>
+    <message>
+        <source>Key mapping on</source>
+        <translation>键鼠映射：开</translation>
+    </message>
+    <message>
+        <source>Key mapping off</source>
+        <translation>键鼠映射：关</translation>
+    </message>
+    <message>
+        <source>Scene: %1</source>
+        <translation>场景：%1</translation>
+    </message>
+    <message>
+        <source>Shooting mode: the mouse turns the view</source>
+        <translation>射击模式：鼠标控制视角</translation>
+    </message>
+    <message>
+        <source>Cursor free: the mouse clicks the screen</source>
+        <translation>已放出鼠标：鼠标直接点画面</translation>
+    </message>
+    <message>
+        <source>view</source>
+        <translation>视角</translation>
+    </message>
+    <message>
+        <source>cursor</source>
+        <translation>鼠标</translation>
     </message>
 </context>
 <context>
@@ -800,6 +835,42 @@ Save anyway?</source>
         <source>Off (the mouse clicks the screen)</source>
         <translation>关闭（鼠标直接点画面）</translation>
     </message>
+    <message>
+        <source>While mapping, switches between shooting mode (the mouse turns the view) and a free cursor that clicks the screen</source>
+        <translation>映射开启时，在射击模式（鼠标控制视角）和放出鼠标（直接点画面）之间切换</translation>
+    </message>
+    <message>
+        <source>Shooting mode key:</source>
+        <translation>射击模式开关键：</translation>
+    </message>
+    <message>
+        <source>package name, e.g. com.example.game</source>
+        <translation>游戏包名，比如 com.example.game</translation>
+    </message>
+    <message>
+        <source>When this game comes to the front, this keymap is loaded automatically. Several packages can be separated by commas.</source>
+        <translation>这个游戏切到前台时会自动加载这个配置。多个包名用逗号分隔。</translation>
+    </message>
+    <message>
+        <source>Current app</source>
+        <translation>填入当前应用</translation>
+    </message>
+    <message>
+        <source>Fill in the app now in the foreground on the phone</source>
+        <translation>填入手机当前前台运行的应用</translation>
+    </message>
+    <message>
+        <source>Game:</source>
+        <translation>适用游戏：</translation>
+    </message>
+    <message>
+        <source>Could not read the app in the foreground. Is the phone connected and the game open?</source>
+        <translation>读取不到前台应用。请确认手机已连接，并且游戏已经打开。</translation>
+    </message>
+    <message>
+        <source>%1 added: this keymap is loaded when it comes to the front</source>
+        <translation>已添加 %1：它切到前台时会自动加载这个配置</translation>
+    </message>
 </context>
 <context>
     <name>KeyMapModel</name>
@@ -994,6 +1065,22 @@ Save anyway?</source>
     <message>
         <source>%1: only keyboard keys can switch scenes</source>
         <translation>%1：只有键盘按键能切换场景</translation>
+    </message>
+    <message>
+        <source>The shooting mode key must be a keyboard key</source>
+        <translation>射击模式开关键必须是键盘按键</translation>
+    </message>
+    <message>
+        <source>The shooting mode key is also the mapping on/off key</source>
+        <translation>射击模式开关键和映射开关键重复了</translation>
+    </message>
+    <message>
+        <source>The shooting mode key is also the hot key of scene %1</source>
+        <translation>射击模式开关键和场景 %1 的切换热键重复了</translation>
+    </message>
+    <message>
+        <source>%1: the key is also the shooting mode key, which wins</source>
+        <translation>%1：这个键也是射击模式开关键，按下时只会切换射击模式</translation>
     </message>
 </context>
 <context>
@@ -1387,6 +1474,22 @@ Save anyway?</source>
     <message>
         <source>edit keymap</source>
         <translation>编辑按键</translation>
+    </message>
+    <message>
+        <source>draw the mapped keys, the scene and the mouse mode over the video</source>
+        <translation>在投屏画面上显示按键位置、当前场景和鼠标模式</translation>
+    </message>
+    <message>
+        <source>key hints</source>
+        <translation>按键提示</translation>
+    </message>
+    <message>
+        <source>load the keymap whose game package matches the app in the foreground</source>
+        <translation>前台游戏和某个配置的「适用游戏」匹配时自动加载那个配置</translation>
+    </message>
+    <message>
+        <source>keymap per game</source>
+        <translation>按游戏切换配置</translation>
     </message>
 </context>
 </TS>
