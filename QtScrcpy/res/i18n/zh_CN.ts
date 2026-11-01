@@ -323,6 +323,18 @@
         <source>keymap %1 saved</source>
         <translation>按键配置 %1 已保存</translation>
     </message>
+    <message>
+        <source>Auto (hardware decoding first)</source>
+        <translation>自动（优先硬件解码）</translation>
+    </message>
+    <message>
+        <source>Software decoding (FFmpeg)</source>
+        <translation>软件解码 (FFmpeg)</translation>
+    </message>
+    <message>
+        <source>Hardware decoding uses the graphics card (D3D11VA) and lowers the CPU load at high resolution and frame rate. Takes effect on the next connection.</source>
+        <translation>硬件解码用显卡 (D3D11VA) 解码，在高分辨率、高帧率下降低 CPU 占用。下次连接时生效。</translation>
+    </message>
 </context>
 <context>
     <name>KeyCaptureButton</name>
@@ -708,6 +720,86 @@ Save anyway?</source>
         <source>untitled</source>
         <translation>未命名</translation>
     </message>
+    <message>
+        <source>Scene</source>
+        <translation>场景</translation>
+    </message>
+    <message>
+        <source>Each scene is a set of keys, e.g. walking, driving, backpack</source>
+        <translation>每个场景是一套键位，比如步行、驾驶、背包</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>新建</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>改名</translation>
+    </message>
+    <message>
+        <source>Press it while mapping to switch to this scene, press it again to go back to the first scene</source>
+        <translation>映射开启时按下它切换到这个场景，再按一次回到第一个场景</translation>
+    </message>
+    <message>
+        <source>Hot key:</source>
+        <translation>切换热键：</translation>
+    </message>
+    <message>
+        <source>Mouse look:</source>
+        <translation>鼠标视角：</translation>
+    </message>
+    <message>
+        <source>e.g. the &quot;get in the car&quot; key: after its tap, the keys of the driving scene are used</source>
+        <translation>比如“上车”键：点击完成后换成驾驶场景的键位</translation>
+    </message>
+    <message>
+        <source>Then switch to:</source>
+        <translation>松开后切换到：</translation>
+    </message>
+    <message>
+        <source>New scene</source>
+        <translation>新建场景</translation>
+    </message>
+    <message>
+        <source>Scene name, e.g. drive or backpack:</source>
+        <translation>场景名称，比如：驾驶、背包：</translation>
+    </message>
+    <message>
+        <source>There is already a scene called &quot;%1&quot;</source>
+        <translation>已经有叫「%1」的场景了</translation>
+    </message>
+    <message>
+        <source>Scene &quot;%1&quot; added. It uses the mouse look of the first scene; give it a hot key, or let a key switch to it after its tap.</source>
+        <translation>已添加场景「%1」，默认沿用第一个场景的鼠标视角。给它设一个切换热键，或者让某个按键（比如上车键）松开后切换过来。</translation>
+    </message>
+    <message>
+        <source>Rename scene</source>
+        <translation>场景改名</translation>
+    </message>
+    <message>
+        <source>Scene name:</source>
+        <translation>场景名称：</translation>
+    </message>
+    <message>
+        <source>Delete scene &quot;%1&quot; and all its keys?</source>
+        <translation>删除场景「%1」和里面的所有按键？</translation>
+    </message>
+    <message>
+        <source>(stay in this scene)</source>
+        <translation>（不切换）</translation>
+    </message>
+    <message>
+        <source>Same as the first scene</source>
+        <translation>沿用第一个场景</translation>
+    </message>
+    <message>
+        <source>Own settings in this scene</source>
+        <translation>本场景单独设置</translation>
+    </message>
+    <message>
+        <source>Off (the mouse clicks the screen)</source>
+        <translation>关闭（鼠标直接点画面）</translation>
+    </message>
 </context>
 <context>
     <name>KeyMapModel</name>
@@ -858,6 +950,50 @@ Save anyway?</source>
     <message>
         <source>Mouse look</source>
         <translation>鼠标视角</translation>
+    </message>
+    <message>
+        <source>scenes must only contain objects</source>
+        <translation>scenes 里只能放对象</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>默认</translation>
+    </message>
+    <message>
+        <source>Scene %1</source>
+        <translation>场景 %1</translation>
+    </message>
+    <message>
+        <source>Scene %1 has no name</source>
+        <translation>场景 %1 没有名称</translation>
+    </message>
+    <message>
+        <source>Two scenes are called &quot;%1&quot;</source>
+        <translation>有两个场景都叫「%1」</translation>
+    </message>
+    <message>
+        <source>Scene %1: the hot key must be a keyboard key</source>
+        <translation>场景 %1：切换热键必须是键盘按键</translation>
+    </message>
+    <message>
+        <source>Scene %1: the hot key is also the mapping on/off key</source>
+        <translation>场景 %1：切换热键和映射开关键重复了</translation>
+    </message>
+    <message>
+        <source>Scenes %1 share the hot key %2</source>
+        <translation>场景 %1 用了同一个切换热键 %2</translation>
+    </message>
+    <message>
+        <source>%1: the key is also the hot key of scene %2, which wins</source>
+        <translation>%1：这个键也是场景 %2 的切换热键，按下时只会切换场景</translation>
+    </message>
+    <message>
+        <source>%1: switches to scene &quot;%2&quot;, which does not exist</source>
+        <translation>%1：要切换到的场景「%2」不存在</translation>
+    </message>
+    <message>
+        <source>%1: only keyboard keys can switch scenes</source>
+        <translation>%1：只有键盘按键能切换场景</translation>
     </message>
 </context>
 <context>

@@ -122,9 +122,10 @@ void KeyMapModel::reset()
 {
     m_root = QJsonObject();
     m_root.insert("switchKey", "Key_QuoteLeft");
-    m_nodes.clear();
-    m_mouse = QJsonObject();
-    m_hasMouse = false;
+    m_scenes.clear();
+    m_scenes.append(QJsonObject());
+    m_scene = 0;
+    loadScene(0);
 }
 
 bool KeyMapModel::load(const QByteArray &json, QString *error)
@@ -145,38 +146,230 @@ bool KeyMapModel::load(const QByteArray &json, QString *error)
     }
 
     QJsonObject root = doc.object();
-    QVector<QJsonObject> nodes;
-    const QJsonArray array = root.value("keyMapNodes").toArray();
-    for (int i = 0; i < array.size(); ++i) {
-        if (!array.at(i).isObject()) {
+    // the first scene lives in the root object
+    QVector<QJsonObject> scenes;
+    QJsonObject first;
+    const QStringList sceneKeys = { "name", "hotKey", "keyMapNodes", kMouseMove };
+    for (const QString &key : sceneKeys) {
+        if (root.contains(key)) {
+            first.insert(key, root.value(key));
+            root.remove(key);
+        }
+    }
+    scenes.append(first);
+    const QJsonArray extra = root.value("scenes").toArray();
+    root.remove("scenes");
+    for (int i = 0; i < extra.size(); ++i) {
+        if (!extra.at(i).isObject()) {
             if (error) {
-                *error = tr("keyMapNodes must only contain objects");
+                *error = tr("scenes must only contain objects");
             }
             return false;
         }
-        nodes.append(array.at(i).toObject());
+        scenes.append(extra.at(i).toObject());
+    }
+    for (const QJsonObject &scene : scenes) {
+        const QJsonArray array = scene.value("keyMapNodes").toArray();
+        for (int i = 0; i < array.size(); ++i) {
+            if (!array.at(i).isObject()) {
+                if (error) {
+                    *error = tr("keyMapNodes must only contain objects");
+                }
+                return false;
+            }
+        }
     }
 
-    m_hasMouse = root.value(kMouseMove).isObject();
-    m_mouse = root.value(kMouseMove).toObject();
-    root.remove("keyMapNodes");
-    root.remove(kMouseMove);
     m_root = root;
-    m_nodes = nodes;
+    m_scenes = scenes;
+    m_scene = 0;
+    loadScene(0);
     return true;
 }
 
-QByteArray KeyMapModel::toJson() const
+void KeyMapModel::loadScene(int scene)
 {
-    QJsonObject root = m_root;
+    const QJsonObject obj = m_scenes.value(scene);
+    m_nodes.clear();
+    const QJsonArray array = obj.value("keyMapNodes").toArray();
+    for (int i = 0; i < array.size(); ++i) {
+        m_nodes.append(array.at(i).toObject());
+    }
+    m_hasMouse = obj.value(kMouseMove).isObject();
+    m_mouse = obj.value(kMouseMove).toObject();
     if (m_hasMouse) {
-        root.insert(kMouseMove, m_mouse);
+        m_mouseMode = MouseOwn;
+    } else {
+        // a later scene without the key uses the first scene's mouse look
+        m_mouseMode = scene > 0 && !obj.contains(kMouseMove) ? MouseInherit : MouseOff;
+    }
+}
+
+QJsonObject KeyMapModel::sceneObject(int scene) const
+{
+    QJsonObject obj = m_scenes.value(scene);
+    if (scene != m_scene) {
+        return obj;
     }
     QJsonArray array;
     for (const QJsonObject &node : m_nodes) {
         array.append(node);
     }
-    root.insert("keyMapNodes", array);
+    obj.insert("keyMapNodes", array);
+    if (m_mouseMode == MouseOwn && m_hasMouse) {
+        obj.insert(kMouseMove, m_mouse);
+    } else if (m_mouseMode == MouseOff && scene > 0) {
+        obj.insert(kMouseMove, false);
+    } else {
+        obj.remove(kMouseMove);
+    }
+    return obj;
+}
+
+void KeyMapModel::storeCurrentScene()
+{
+    m_scenes[m_scene] = sceneObject(m_scene);
+}
+
+int KeyMapModel::sceneCount() const
+{
+    return m_scenes.size();
+}
+
+int KeyMapModel::currentScene() const
+{
+    return m_scene;
+}
+
+void KeyMapModel::setCurrentScene(int scene)
+{
+    if (scene < 0 || scene >= m_scenes.size() || scene == m_scene) {
+        return;
+    }
+    storeCurrentScene();
+    m_scene = scene;
+    loadScene(scene);
+}
+
+QString KeyMapModel::sceneName(int scene) const
+{
+    return m_scenes.value(scene).value("name").toString();
+}
+
+QString KeyMapModel::sceneTitle(int scene) const
+{
+    const QString name = sceneName(scene);
+    if (!name.isEmpty()) {
+        return name;
+    }
+    return scene == 0 ? tr("Default") : tr("Scene %1").arg(scene + 1);
+}
+
+QString KeyMapModel::sceneHotKey(int scene) const
+{
+    return m_scenes.value(scene).value("hotKey").toString();
+}
+
+int KeyMapModel::addScene(const QString &name)
+{
+    storeCurrentScene();
+    QJsonObject scene;
+    scene.insert("name", name);
+    scene.insert("keyMapNodes", QJsonArray());
+    m_scenes.append(scene);
+    return m_scenes.size() - 1;
+}
+
+void KeyMapModel::removeScene(int scene)
+{
+    if (scene <= 0 || scene >= m_scenes.size()) {
+        return;
+    }
+    storeCurrentScene();
+    m_scenes.remove(scene);
+    if (m_scene == scene) {
+        m_scene = 0;
+    } else if (m_scene > scene) {
+        --m_scene;
+    }
+    loadScene(m_scene);
+}
+
+void KeyMapModel::renameScene(int scene, const QString &name)
+{
+    if (scene < 0 || scene >= m_scenes.size()) {
+        return;
+    }
+    storeCurrentScene();
+    const QString oldName = sceneName(scene);
+    m_scenes[scene].insert("name", name);
+    // keys that switch to this scene follow the new name
+    for (QJsonObject &obj : m_scenes) {
+        QJsonArray nodes = obj.value("keyMapNodes").toArray();
+        for (int i = 0; i < nodes.size(); ++i) {
+            QJsonObject node = nodes.at(i).toObject();
+            if (!oldName.isEmpty() && node.value("switchScene").toString() == oldName) {
+                node.insert("switchScene", name);
+                nodes[i] = node;
+            }
+        }
+        obj.insert("keyMapNodes", nodes);
+    }
+    loadScene(m_scene);
+}
+
+void KeyMapModel::setSceneHotKey(int scene, const QString &key)
+{
+    if (scene < 0 || scene >= m_scenes.size()) {
+        return;
+    }
+    if (key.isEmpty()) {
+        m_scenes[scene].remove("hotKey");
+    } else {
+        m_scenes[scene].insert("hotKey", key);
+    }
+}
+
+KeyMapModel::MouseMode KeyMapModel::mouseMode() const
+{
+    return m_mouseMode;
+}
+
+void KeyMapModel::setMouseMode(MouseMode mode)
+{
+    if (mode == MouseInherit && m_scene == 0) {
+        mode = MouseOff;
+    }
+    if (mode == MouseOwn && !m_hasMouse) {
+        // start from what the scene used so far
+        const QJsonValue inherited = sceneObject(0).value(kMouseMove);
+        if (m_scene > 0 && inherited.isObject()) {
+            m_mouse = inherited.toObject();
+            m_hasMouse = true;
+        } else {
+            addItem(kMouseMove, QPointF(0.57, 0.3));
+        }
+    } else if (mode != MouseOwn) {
+        m_mouse = QJsonObject();
+        m_hasMouse = false;
+    }
+    m_mouseMode = mode;
+}
+
+QByteArray KeyMapModel::toJson() const
+{
+    QJsonObject root = m_root;
+    const QJsonObject first = sceneObject(0);
+    for (auto it = first.constBegin(); it != first.constEnd(); ++it) {
+        root.insert(it.key(), it.value());
+    }
+    if (m_scenes.size() > 1) {
+        QJsonArray scenes;
+        for (int i = 1; i < m_scenes.size(); ++i) {
+            scenes.append(sceneObject(i));
+        }
+        root.insert("scenes", scenes);
+    }
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 
@@ -214,6 +407,7 @@ void KeyMapModel::setItem(int item, const QJsonObject &obj)
     if (item == MouseItem) {
         m_mouse = obj;
         m_hasMouse = true;
+        m_mouseMode = MouseOwn;
     } else if (item >= 0 && item < m_nodes.size()) {
         m_nodes[item] = obj;
     }
@@ -279,6 +473,7 @@ int KeyMapModel::addItem(const QString &type, const QPointF &at)
         mouse.insert("autoReleaseMs", 500);
         m_mouse = mouse;
         m_hasMouse = true;
+        m_mouseMode = MouseOwn;
         return MouseItem;
     }
 
@@ -331,6 +526,7 @@ void KeyMapModel::removeItem(int item)
     if (item == MouseItem) {
         m_mouse = QJsonObject();
         m_hasMouse = false;
+        m_mouseMode = MouseOff;
     } else if (item >= 0 && item < m_nodes.size()) {
         m_nodes.remove(item);
     }
@@ -556,10 +752,72 @@ int KeyMapModel::primaryPart(int item) const
 QStringList KeyMapModel::problems() const
 {
     QStringList result;
-    if (!isValidKey(switchKey())) {
+    const QString switchKeyName = switchKey();
+    if (!isValidKey(switchKeyName)) {
         result << tr("The mapping on/off key is not set");
     }
 
+    const int count = m_scenes.size();
+    QMap<QString, QStringList> hotKeys;
+    QStringList names;
+    for (int i = 0; i < count; ++i) {
+        const QString name = sceneName(i);
+        if (i > 0 && name.trimmed().isEmpty()) {
+            result << tr("Scene %1 has no name").arg(i + 1);
+        } else if (!name.isEmpty() && names.contains(name)) {
+            result << tr("Two scenes are called \"%1\"").arg(name);
+        }
+        names << name;
+        const QString hotKey = sceneHotKey(i);
+        if (hotKey.isEmpty()) {
+            continue;
+        }
+        if (!isKeyboardKey(hotKey)) {
+            result << tr("Scene %1: the hot key must be a keyboard key").arg(sceneTitle(i));
+        } else if (hotKey == switchKeyName) {
+            result << tr("Scene %1: the hot key is also the mapping on/off key").arg(sceneTitle(i));
+        } else {
+            hotKeys[hotKey] << sceneTitle(i);
+        }
+    }
+    for (auto it = hotKeys.constBegin(); it != hotKeys.constEnd(); ++it) {
+        if (it.value().size() > 1) {
+            result << tr("Scenes %1 share the hot key %2").arg(it.value().join(", "), shortKeyLabel(it.key()));
+        }
+    }
+
+    for (int i = 0; i < count; ++i) {
+        KeyMapModel scene = *this;
+        scene.setCurrentScene(i);
+        const QString prefix = count > 1 ? QString("[%1] ").arg(sceneTitle(i)) : QString();
+        const QStringList sceneProblems = scene.currentSceneProblems();
+        for (const QString &problem : sceneProblems) {
+            result << prefix + problem;
+        }
+        for (int j = 0; j < scene.m_nodes.size(); ++j) {
+            const QJsonObject &node = scene.m_nodes.at(j);
+            const QString key = node.value("key").toString();
+            if (hotKeys.contains(key)) {
+                result << prefix + tr("%1: the key is also the hot key of scene %2, which wins")
+                                       .arg(scene.itemTitle(j), hotKeys.value(key).join(", "));
+            }
+            if (!node.contains("switchScene")) {
+                continue;
+            }
+            const QString target = node.value("switchScene").toString();
+            if (!names.contains(target) || target.isEmpty()) {
+                result << prefix + tr("%1: switches to scene \"%2\", which does not exist").arg(scene.itemTitle(j), target);
+            } else if (!isKeyboardKey(key)) {
+                result << prefix + tr("%1: only keyboard keys can switch scenes").arg(scene.itemTitle(j));
+            }
+        }
+    }
+    return result;
+}
+
+QStringList KeyMapModel::currentSceneProblems() const
+{
+    QStringList result;
     QMap<QString, QStringList> keyUsers;
     if (m_hasMouse) {
         const QString title = itemTitle(MouseItem);
@@ -1179,9 +1437,8 @@ KeyMapEditor::KeyMapEditor(const QString &keymapDir, const QString &defaultDir, 
     connect(m_captureTimeout, &QTimer::timeout, m_captureProcess, &QProcess::kill);
 
     refreshFileBox(QString());
-    refreshList();
-    refreshProperties();
-    refreshProblems();
+    showBackground();
+    refreshAll();
     updateTitle();
 }
 
@@ -1271,6 +1528,68 @@ void KeyMapEditor::buildUi()
     auto *sideLayout = new QVBoxLayout(side);
     sideLayout->setContentsMargins(0, 0, 0, 0);
 
+    auto *sceneGroup = new QGroupBox(tr("Scene"), side);
+    auto *sceneLayout = new QVBoxLayout(sceneGroup);
+    auto *sceneRow = new QHBoxLayout();
+    m_sceneBox = new QComboBox(sceneGroup);
+    m_sceneBox->setObjectName("sceneBox");
+    m_sceneBox->setToolTip(tr("Each scene is a set of keys, e.g. walking, driving, backpack"));
+    connect(m_sceneBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, &KeyMapEditor::onSceneActivated);
+    sceneRow->addWidget(m_sceneBox, 1);
+    QPushButton *addSceneBtn = makeButton(tr("New"), sceneGroup);
+    connect(addSceneBtn, &QPushButton::clicked, this, &KeyMapEditor::onAddScene);
+    sceneRow->addWidget(addSceneBtn);
+    QPushButton *renameSceneBtn = makeButton(tr("Rename"), sceneGroup);
+    connect(renameSceneBtn, &QPushButton::clicked, this, &KeyMapEditor::onRenameScene);
+    sceneRow->addWidget(renameSceneBtn);
+    m_removeSceneBtn = makeButton(tr("Delete"), sceneGroup);
+    connect(m_removeSceneBtn, &QPushButton::clicked, this, &KeyMapEditor::onRemoveScene);
+    sceneRow->addWidget(m_removeSceneBtn);
+    sceneLayout->addLayout(sceneRow);
+
+    auto *sceneForm = makeForm(nullptr);
+    auto *hotKeyRow = new QHBoxLayout();
+    m_sceneHotKeyBtn = new KeyCaptureButton(sceneGroup);
+    m_sceneHotKeyBtn->setToolTip(tr("Press it while mapping to switch to this scene, press it again to go back to the first scene"));
+    connect(m_sceneHotKeyBtn, &KeyCaptureButton::keyCaptured, this, [this](const QString &key) {
+        pushUndo();
+        m_model.setSceneHotKey(m_model.currentScene(), key);
+        modelChanged();
+    });
+    hotKeyRow->addWidget(m_sceneHotKeyBtn, 1);
+    QPushButton *clearHotKeyBtn = makeButton(tr("None"), sceneGroup);
+    connect(clearHotKeyBtn, &QPushButton::clicked, this, [this] {
+        if (m_model.sceneHotKey(m_model.currentScene()).isEmpty()) {
+            return;
+        }
+        pushUndo();
+        m_model.setSceneHotKey(m_model.currentScene(), QString());
+        modelChanged();
+    });
+    hotKeyRow->addWidget(clearHotKeyBtn);
+    sceneForm->addRow(tr("Hot key:"), hotKeyRow);
+    m_sceneMouseRow = new QWidget(sceneGroup);
+    auto *sceneMouseLayout = new QHBoxLayout(m_sceneMouseRow);
+    sceneMouseLayout->setContentsMargins(0, 0, 0, 0);
+    m_sceneMouseBox = new QComboBox(m_sceneMouseRow);
+    m_sceneMouseBox->setObjectName("sceneMouseBox");
+    connect(m_sceneMouseBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, [this](int index) {
+        const auto mode = static_cast<KeyMapModel::MouseMode>(m_sceneMouseBox->itemData(index).toInt());
+        if (mode == m_model.mouseMode()) {
+            return;
+        }
+        pushUndo();
+        m_model.setMouseMode(mode);
+        if (!m_model.hasItem(m_selectedItem)) {
+            select(KeyMapModel::NoItem, -1);
+        }
+        modelChanged();
+    });
+    sceneMouseLayout->addWidget(m_sceneMouseBox);
+    sceneForm->addRow(tr("Mouse look:"), m_sceneMouseRow);
+    sceneLayout->addLayout(sceneForm);
+    sideLayout->addWidget(sceneGroup);
+
     auto *switchForm = makeForm(nullptr);
     m_switchKeyBtn = new KeyCaptureButton(side);
     connect(m_switchKeyBtn, &KeyCaptureButton::keyCaptured, this, [this](const QString &key) {
@@ -1322,8 +1641,33 @@ void KeyMapEditor::buildUi()
     m_keySection = new QWidget(propBox);
     auto *keyForm = makeForm(m_keySection);
     m_keyBtn = new KeyCaptureButton(m_keySection);
+    m_keyBtn->setObjectName("keyButton");
     connect(m_keyBtn, &KeyCaptureButton::keyCaptured, this, [this](const QString &key) { setKeyField("key", key); });
     keyForm->addRow(tr("Key:"), m_keyBtn);
+    m_switchSceneRow = new QWidget(m_keySection);
+    auto *switchSceneLayout = new QHBoxLayout(m_switchSceneRow);
+    switchSceneLayout->setContentsMargins(0, 0, 0, 0);
+    m_switchSceneBox = new QComboBox(m_switchSceneRow);
+    m_switchSceneBox->setObjectName("switchSceneBox");
+    m_switchSceneBox->setToolTip(tr("e.g. the \"get in the car\" key: after its tap, the keys of the driving scene are used"));
+    connect(m_switchSceneBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, [this](int index) {
+        if (m_updating || !m_model.hasItem(m_selectedItem)) {
+            return;
+        }
+        QJsonObject obj = m_model.item(m_selectedItem);
+        const QString target = m_switchSceneBox->itemData(index).toString();
+        if (obj.value("switchScene").toString() == target) {
+            return;
+        }
+        if (target.isEmpty()) {
+            obj.remove("switchScene");
+        } else {
+            obj.insert("switchScene", target);
+        }
+        updateItem(obj);
+    });
+    switchSceneLayout->addWidget(m_switchSceneBox);
+    keyForm->addRow(tr("Then switch to:"), m_switchSceneRow);
     propLayout->addWidget(m_keySection);
 
     m_switchMapSection = new QWidget(propBox);
@@ -1573,14 +1917,12 @@ bool KeyMapEditor::loadFile(const QString &fileName)
     m_fileName = fileName;
     m_undo.clear();
     m_redo.clear();
-    m_pendingUndo.clear();
+    m_pendingUndo = Snapshot();
     loadBackground(fileName);
     setDirty(false);
     refreshFileBox(fileName);
     select(KeyMapModel::NoItem, -1);
-    refreshList();
-    refreshProblems();
-    m_canvas->update();
+    refreshAll();
     return true;
 }
 
@@ -1592,9 +1934,21 @@ bool KeyMapEditor::writeFile(const QString &fileName)
         QMessageBox::warning(this, windowTitle(), tr("Cannot write %1: %2").arg(file.fileName(), file.errorString()));
         return false;
     }
-    if (m_backgroundChanged && !m_canvas->background().isNull()) {
-        // the screenshot is kept next to the keymap so it shows up again next time
-        m_canvas->background().save(imagePathFor(fileName), "PNG");
+    if (m_backgroundChanged) {
+        // screenshots are kept next to the keymap so they show up again next time
+        const int count = m_model.sceneCount();
+        for (int i = 0; i < count; ++i) {
+            const QImage image = m_backgrounds.value(i);
+            if (!image.isNull()) {
+                image.save(imagePathFor(fileName, i), "PNG");
+            } else if (i > 0) {
+                QFile::remove(imagePathFor(fileName, i));
+            }
+        }
+        // screenshots of deleted scenes
+        for (int i = count; QFile::exists(imagePathFor(fileName, i)); ++i) {
+            QFile::remove(imagePathFor(fileName, i));
+        }
         m_backgroundChanged = false;
     }
     return true;
@@ -1665,21 +2019,48 @@ bool KeyMapEditor::maybeSave()
     return answer == QMessageBox::Discard;
 }
 
-QString KeyMapEditor::imagePathFor(const QString &fileName) const
+QString KeyMapEditor::imagePathFor(const QString &fileName, int scene) const
 {
-    return QDir(m_keymapDir).filePath(QFileInfo(fileName).completeBaseName() + ".png");
+    const QString base = QFileInfo(fileName).completeBaseName();
+    return QDir(m_keymapDir).filePath(scene == 0 ? base + ".png" : QString("%1@%2.png").arg(base).arg(scene + 1));
 }
 
 void KeyMapEditor::loadBackground(const QString &fileName)
 {
-    QImage image;
-    if (image.load(imagePathFor(fileName))) {
-        m_canvas->setBackground(image);
+    QVector<QImage> images(m_model.sceneCount());
+    if (images[0].load(imagePathFor(fileName, 0))) {
         m_backgroundChanged = false;
     } else {
         // keep the current screenshot, and store it with this keymap on save
-        m_backgroundChanged = !m_canvas->background().isNull();
+        images[0] = currentBackground();
+        m_backgroundChanged = !images[0].isNull();
     }
+    for (int i = 1; i < images.size(); ++i) {
+        images[i].load(imagePathFor(fileName, i));
+    }
+    m_backgrounds = images;
+    showBackground();
+}
+
+QImage KeyMapEditor::currentBackground() const
+{
+    const QImage image = m_backgrounds.value(m_model.currentScene());
+    return image.isNull() ? m_backgrounds.value(0) : image;
+}
+
+void KeyMapEditor::showBackground()
+{
+    m_backgrounds.resize(m_model.sceneCount());
+    m_canvas->setBackground(currentBackground());
+}
+
+void KeyMapEditor::setBackground(const QImage &image)
+{
+    m_backgrounds.resize(m_model.sceneCount());
+    m_backgrounds[m_model.currentScene()] = image;
+    m_backgroundChanged = true;
+    showBackground();
+    setDirty(true);
 }
 
 QString KeyMapEditor::resolveAdbPath() const
@@ -1749,13 +2130,16 @@ void KeyMapEditor::onNewFile()
         return;
     }
     // start with what every shooter needs
+    const QImage background = currentBackground();
     m_model.reset();
     m_model.addItem(kMouseMove, QPointF(0.57, 0.3));
     m_model.addItem(kSteerWheel, QPointF(0.16, 0.75));
     m_fileName = name;
     m_undo.clear();
     m_redo.clear();
-    m_backgroundChanged = !m_canvas->background().isNull();
+    m_backgrounds = QVector<QImage>(1, background);
+    m_backgroundChanged = !background.isNull();
+    showBackground();
     refreshFileBox(name);
     select(KeyMapModel::NoItem, -1);
     modelChanged();
@@ -1771,7 +2155,7 @@ void KeyMapEditor::onSaveAs()
     const QString oldName = m_fileName;
     const bool oldBackgroundChanged = m_backgroundChanged;
     m_fileName = name;
-    m_backgroundChanged = !m_canvas->background().isNull();
+    m_backgroundChanged = true;
     if (!saveCurrent()) {
         m_fileName = oldName;
         m_backgroundChanged = oldBackgroundChanged;
@@ -1813,9 +2197,7 @@ void KeyMapEditor::onCaptureFinished()
                              tr("Could not capture the phone screen. Is the phone connected and USB debugging allowed?\n\n%1").arg(error));
         return;
     }
-    m_canvas->setBackground(image);
-    m_backgroundChanged = true;
-    setDirty(true);
+    setBackground(image);
     if (image.height() > image.width()) {
         m_statusLabel->setText(tr("The screenshot is portrait. Key positions follow the screen orientation, so open the game first and capture again."));
     } else {
@@ -1834,9 +2216,7 @@ void KeyMapEditor::onOpenImage()
         QMessageBox::warning(this, windowTitle(), tr("Cannot open %1").arg(path));
         return;
     }
-    m_canvas->setBackground(image);
-    m_backgroundChanged = true;
-    setDirty(true);
+    setBackground(image);
 }
 
 void KeyMapEditor::onListRowChanged(int row)
@@ -1849,16 +2229,16 @@ void KeyMapEditor::onListRowChanged(int row)
 
 void KeyMapEditor::onHandlePressed(int item, int part)
 {
-    m_pendingUndo = m_model.toJson();
+    m_pendingUndo = snapshot();
     select(item, part);
 }
 
 void KeyMapEditor::onHandleDragged(int item, int part, const QPointF &pos)
 {
-    if (!m_pendingUndo.isEmpty()) {
+    if (!m_pendingUndo.json.isEmpty()) {
         m_undo.append(m_pendingUndo);
         m_redo.clear();
-        m_pendingUndo.clear();
+        m_pendingUndo = Snapshot();
     }
     m_model.moveHandle(item, part, pos);
     m_selectedPart = part;
@@ -1939,12 +2319,8 @@ void KeyMapEditor::onUndo()
     if (m_undo.isEmpty()) {
         return;
     }
-    m_redo.append(m_model.toJson());
-    m_model.load(m_undo.takeLast(), nullptr);
-    if (!m_model.hasItem(m_selectedItem)) {
-        select(KeyMapModel::NoItem, -1);
-    }
-    modelChanged();
+    m_redo.append(snapshot());
+    restore(m_undo.takeLast());
 }
 
 void KeyMapEditor::onRedo()
@@ -1952,11 +2328,100 @@ void KeyMapEditor::onRedo()
     if (m_redo.isEmpty()) {
         return;
     }
-    m_undo.append(m_model.toJson());
-    m_model.load(m_redo.takeLast(), nullptr);
+    m_undo.append(snapshot());
+    restore(m_redo.takeLast());
+}
+
+KeyMapEditor::Snapshot KeyMapEditor::snapshot() const
+{
+    Snapshot state;
+    state.json = m_model.toJson();
+    state.scene = m_model.currentScene();
+    return state;
+}
+
+void KeyMapEditor::restore(const Snapshot &state)
+{
+    m_model.load(state.json, nullptr);
+    m_model.setCurrentScene(state.scene);
     if (!m_model.hasItem(m_selectedItem)) {
         select(KeyMapModel::NoItem, -1);
     }
+    showBackground();
+    modelChanged();
+}
+
+void KeyMapEditor::onSceneActivated(int index)
+{
+    if (index == m_model.currentScene()) {
+        return;
+    }
+    m_model.setCurrentScene(index);
+    select(KeyMapModel::NoItem, -1);
+    showBackground();
+    refreshAll();
+}
+
+void KeyMapEditor::onAddScene()
+{
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, tr("New scene"), tr("Scene name, e.g. drive or backpack:"), QLineEdit::Normal, QString(), &ok).trimmed();
+    if (!ok || name.isEmpty()) {
+        return;
+    }
+    for (int i = 0; i < m_model.sceneCount(); ++i) {
+        if (m_model.sceneTitle(i) == name) {
+            QMessageBox::warning(this, windowTitle(), tr("There is already a scene called \"%1\"").arg(name));
+            return;
+        }
+    }
+    pushUndo();
+    // keys switch scenes by name, so the first scene needs one too
+    if (m_model.sceneName(0).isEmpty()) {
+        m_model.renameScene(0, m_model.sceneTitle(0));
+    }
+    const int scene = m_model.addScene(name);
+    m_model.setCurrentScene(scene);
+    select(KeyMapModel::NoItem, -1);
+    showBackground();
+    modelChanged();
+    m_statusLabel->setText(tr("Scene \"%1\" added. It uses the mouse look of the first scene; give it a hot key, or let a key switch to it after its tap.").arg(name));
+}
+
+void KeyMapEditor::onRenameScene()
+{
+    const int scene = m_model.currentScene();
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, tr("Rename scene"), tr("Scene name:"), QLineEdit::Normal, m_model.sceneTitle(scene), &ok).trimmed();
+    if (!ok || name.isEmpty() || name == m_model.sceneName(scene)) {
+        return;
+    }
+    for (int i = 0; i < m_model.sceneCount(); ++i) {
+        if (i != scene && m_model.sceneTitle(i) == name) {
+            QMessageBox::warning(this, windowTitle(), tr("There is already a scene called \"%1\"").arg(name));
+            return;
+        }
+    }
+    pushUndo();
+    m_model.renameScene(scene, name);
+    modelChanged();
+}
+
+void KeyMapEditor::onRemoveScene()
+{
+    const int scene = m_model.currentScene();
+    if (scene == 0) {
+        return;
+    }
+    if (QMessageBox::question(this, windowTitle(), tr("Delete scene \"%1\" and all its keys?").arg(m_model.sceneTitle(scene))) != QMessageBox::Yes) {
+        return;
+    }
+    pushUndo();
+    m_model.removeScene(scene);
+    m_backgrounds.remove(scene);
+    m_backgroundChanged = true;
+    select(KeyMapModel::NoItem, -1);
+    showBackground();
     modelChanged();
 }
 
@@ -2010,6 +2475,22 @@ void KeyMapEditor::refreshProperties()
 
     m_keySection->setVisible(hasSelection && !isMouse && !isSteer);
     m_keyBtn->setKeyName(obj.value("key").toString());
+    m_switchSceneRow->setVisible(m_model.sceneCount() > 1);
+    m_switchSceneBox->clear();
+    m_switchSceneBox->addItem(tr("(stay in this scene)"), QString());
+    for (int i = 0; i < m_model.sceneCount(); ++i) {
+        if (i != m_model.currentScene() && !m_model.sceneName(i).isEmpty()) {
+            m_switchSceneBox->addItem(m_model.sceneTitle(i), m_model.sceneName(i));
+        }
+    }
+    const QString switchTarget = obj.value("switchScene").toString();
+    int switchIndex = m_switchSceneBox->findData(switchTarget);
+    if (switchIndex < 0) {
+        // keep showing a name that no longer exists, the problem list explains it
+        m_switchSceneBox->addItem(switchTarget, switchTarget);
+        switchIndex = m_switchSceneBox->count() - 1;
+    }
+    m_switchSceneBox->setCurrentIndex(switchIndex);
 
     m_switchMapSection->setVisible(hasSelection && type == kClick);
     m_switchMapCheck->setChecked(obj.value("switchMap").toBool());
@@ -2100,20 +2581,50 @@ void KeyMapEditor::refreshProblems()
 void KeyMapEditor::modelChanged()
 {
     setDirty(true);
+    refreshAll();
+}
+
+void KeyMapEditor::refreshAll()
+{
+    refreshSceneBar();
     refreshList();
     refreshProperties();
     refreshProblems();
     m_canvas->setSelection(m_selectedItem, m_selectedPart);
 }
 
+void KeyMapEditor::refreshSceneBar()
+{
+    m_updating = true;
+    const int current = m_model.currentScene();
+    m_sceneBox->clear();
+    for (int i = 0; i < m_model.sceneCount(); ++i) {
+        const QString hotKey = m_model.sceneHotKey(i);
+        m_sceneBox->addItem(hotKey.isEmpty() ? m_model.sceneTitle(i)
+                                             : QString("%1  [%2]").arg(m_model.sceneTitle(i), KeyMapModel::shortKeyLabel(hotKey)));
+    }
+    m_sceneBox->setCurrentIndex(current);
+    m_removeSceneBtn->setEnabled(current > 0);
+    m_sceneHotKeyBtn->setKeyName(m_model.sceneHotKey(current));
+
+    m_sceneMouseBox->clear();
+    if (current > 0) {
+        m_sceneMouseBox->addItem(tr("Same as the first scene"), KeyMapModel::MouseInherit);
+    }
+    m_sceneMouseBox->addItem(tr("Own settings in this scene"), KeyMapModel::MouseOwn);
+    m_sceneMouseBox->addItem(tr("Off (the mouse clicks the screen)"), KeyMapModel::MouseOff);
+    m_sceneMouseBox->setCurrentIndex(m_sceneMouseBox->findData(m_model.mouseMode()));
+    m_updating = false;
+}
+
 void KeyMapEditor::pushUndo()
 {
-    m_undo.append(m_model.toJson());
+    m_undo.append(snapshot());
     if (m_undo.size() > kMaxUndo) {
         m_undo.removeFirst();
     }
     m_redo.clear();
-    m_pendingUndo.clear();
+    m_pendingUndo = Snapshot();
 }
 
 void KeyMapEditor::setDirty(bool dirty)

@@ -71,6 +71,13 @@ public:
         MouseItem = -1,
         NoItem = -2
     };
+    // mouse look of the current scene; only later scenes can inherit the first one's
+    enum MouseMode
+    {
+        MouseOwn,
+        MouseInherit,
+        MouseOff
+    };
 
     KeyMapModel();
 
@@ -103,7 +110,24 @@ public:
     void moveHandle(int item, int part, const QPointF &pos);
     int primaryPart(int item) const;
 
+    // problems of every scene, plus scene names, hot keys and switches
     QStringList problems() const;
+
+    // scenes: 0 is the root of the file, the others come from "scenes";
+    // items, handles and positions always refer to the current scene
+    int sceneCount() const;
+    int currentScene() const;
+    void setCurrentScene(int scene);
+    QString sceneName(int scene) const;
+    // the name shown to the user, "Default" for an unnamed first scene
+    QString sceneTitle(int scene) const;
+    QString sceneHotKey(int scene) const;
+    int addScene(const QString &name);
+    void removeScene(int scene);
+    void renameScene(int scene, const QString &name);
+    void setSceneHotKey(int scene, const QString &key);
+    MouseMode mouseMode() const;
+    void setMouseMode(MouseMode mode);
 
     static bool isValidKey(const QString &name);
     static bool isKeyboardKey(const QString &name);
@@ -114,10 +138,21 @@ public:
     static QRectF mouseBounds(const QJsonObject &mouse);
 
 private:
+    // the scene object with the current scene's edits written in
+    QJsonObject sceneObject(int scene) const;
+    void storeCurrentScene();
+    void loadScene(int scene);
+    QStringList currentSceneProblems() const;
+
+    // root fields other than the first scene's
     QJsonObject m_root;
+    QVector<QJsonObject> m_scenes;
+    int m_scene = 0;
+    // working copy of the current scene
     QVector<QJsonObject> m_nodes;
     QJsonObject m_mouse;
     bool m_hasMouse = false;
+    MouseMode m_mouseMode = MouseOff;
 };
 
 // Records the next key or mouse button pressed on it, as a keymap key name ("Key_A", "LeftButton")
@@ -234,6 +269,12 @@ private slots:
     void onApplyJson();
     void onUndo();
     void onRedo();
+    void onSceneActivated(int index);
+    void onAddScene();
+    void onRenameScene();
+    void onRemoveScene();
+    // background of the current scene (a capture or an opened image)
+    void setBackground(const QImage &image);
 
 private:
     void buildUi();
@@ -244,13 +285,19 @@ private:
     QString askFileName(const QString &title, const QString &suggestion);
     bool maybeSave();
     void loadBackground(const QString &fileName);
-    QString imagePathFor(const QString &fileName) const;
+    // screenshot of a scene: <name>.png for the first, <name>@<n>.png for scene n
+    QString imagePathFor(const QString &fileName, int scene) const;
+    QImage currentBackground() const;
+    void showBackground();
     QString resolveAdbPath() const;
 
     void select(int item, int part);
     void refreshList();
     void refreshProperties();
     void refreshProblems();
+    void refreshSceneBar();
+    // redraw everything from the model; modelChanged also marks the file dirty
+    void refreshAll();
     void modelChanged();
     void pushUndo();
     void setDirty(bool dirty);
@@ -270,10 +317,19 @@ private:
     KeyMapModel m_model;
     int m_selectedItem = KeyMapModel::NoItem;
     int m_selectedPart = -1;
-    QVector<QByteArray> m_undo;
-    QVector<QByteArray> m_redo;
+    struct Snapshot
+    {
+        QByteArray json;
+        int scene = 0;
+    };
+    Snapshot snapshot() const;
+    void restore(const Snapshot &state);
+    QVector<Snapshot> m_undo;
+    QVector<Snapshot> m_redo;
     // state before a handle drag, pushed to m_undo once the drag really moves something
-    QByteArray m_pendingUndo;
+    Snapshot m_pendingUndo;
+    // per scene; a null image shows the first scene's
+    QVector<QImage> m_backgrounds;
 
     QProcess *m_captureProcess = nullptr;
     QTimer *m_captureTimeout = nullptr;
@@ -283,6 +339,11 @@ private:
     KeyMapCanvas *m_canvas = nullptr;
     QLabel *m_statusLabel = nullptr;
     KeyCaptureButton *m_switchKeyBtn = nullptr;
+    QComboBox *m_sceneBox = nullptr;
+    QPushButton *m_removeSceneBtn = nullptr;
+    KeyCaptureButton *m_sceneHotKeyBtn = nullptr;
+    QWidget *m_sceneMouseRow = nullptr;
+    QComboBox *m_sceneMouseBox = nullptr;
     QListWidget *m_itemList = nullptr;
     QLabel *m_problemLabel = nullptr;
 
@@ -292,6 +353,8 @@ private:
     QLineEdit *m_commentEdit = nullptr;
     QWidget *m_keySection = nullptr;
     KeyCaptureButton *m_keyBtn = nullptr;
+    QWidget *m_switchSceneRow = nullptr;
+    QComboBox *m_switchSceneBox = nullptr;
     QWidget *m_switchMapSection = nullptr;
     QCheckBox *m_switchMapCheck = nullptr;
     QWidget *m_steerSection = nullptr;
