@@ -32,6 +32,7 @@
 
 #include "config.h"
 #include "dialog.h"
+#include "keymapeditor.h"
 #include "ui_dialog.h"
 #include "videoform.h"
 #include "../groupcontroller/groupcontroller.h"
@@ -1473,6 +1474,28 @@ void Dialog::on_applyScriptBtn_clicked()
     }
 
     device->updateScript(getGameScript(ui->gameBox->currentText()));
+}
+
+void Dialog::on_keymapEditorBtn_clicked()
+{
+    if (!m_keymapEditor) {
+        m_keymapEditor = new KeyMapEditor(getKeyMapPath(), getDefaultKeyMapPath(), this);
+        connect(m_keymapEditor, &KeyMapEditor::keymapSaved, this, [this](const QString &fileName) {
+            on_refreshGameScriptBtn_clicked();
+            selectKeymap(fileName);
+            if (qsc::IDeviceManage::getInstance().getDevice(ui->serialBox->currentText().trimmed())) {
+                on_applyScriptBtn_clicked();
+                outLog(tr("keymap %1 saved and loaded on the phone").arg(fileName));
+            } else {
+                outLog(tr("keymap %1 saved").arg(fileName));
+            }
+        });
+    }
+    m_keymapEditor->setDeviceSerial(ui->serialBox->currentText().trimmed());
+    m_keymapEditor->openKeymap(ui->gameBox->currentText());
+    m_keymapEditor->show();
+    m_keymapEditor->raise();
+    m_keymapEditor->activateWindow();
 }
 
 void Dialog::on_recordScreenCheck_clicked(bool checked)

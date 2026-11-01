@@ -28,6 +28,7 @@ class QCheckBox;
 class QGroupBox;
 class QPushButton;
 class QSpinBox;
+class KeyMapEditor;
 class Dialog : public QWidget
 {
     Q_OBJECT
@@ -61,6 +62,7 @@ private slots:
     void on_stopAllServerBtn_clicked();
     void on_refreshGameScriptBtn_clicked();
     void on_applyScriptBtn_clicked();
+    void on_keymapEditorBtn_clicked();
     void on_recordScreenCheck_clicked(bool checked);
     void on_usbConnectBtn_clicked();
     void on_wifiConnectBtn_clicked();
@@ -156,6 +158,7 @@ private:
     QPointer<PresetConfigDialog> m_presetDialog;
     // serials auto-connect already tried; cleared when the device is unplugged
     QSet<QString> m_autoConnectTried;
+    QPointer<KeyMapEditor> m_keymapEditor;
     QSet<QString> m_unauthorizedNotified;
     bool m_noDeviceHinted = false;
 };

@@ -315,6 +315,550 @@
         <source>no device found: connect the phone with a USB cable and turn on USB debugging in Developer options</source>
         <translation>未发现设备：请用数据线连接手机，并在“开发者选项”中打开“USB 调试”</translation>
     </message>
+    <message>
+        <source>keymap %1 saved and loaded on the phone</source>
+        <translation>按键配置 %1 已保存并加载到手机</translation>
+    </message>
+    <message>
+        <source>keymap %1 saved</source>
+        <translation>按键配置 %1 已保存</translation>
+    </message>
+</context>
+<context>
+    <name>KeyCaptureButton</name>
+    <message>
+        <source>Click, then press a key, or click here with the mouse button to use. Esc cancels.</source>
+        <translation>点一下，然后按下要用的键盘按键，或者用要用的鼠标键在这里点一下。Esc 取消。</translation>
+    </message>
+    <message>
+        <source>Press a key or mouse button...</source>
+        <translation>请按下按键或鼠标键…</translation>
+    </message>
+    <message>
+        <source>(not set, click to record)</source>
+        <translation>（未设置，点击录入）</translation>
+    </message>
+</context>
+<context>
+    <name>KeyMapCanvas</name>
+    <message>
+        <source>Open the game on the phone (landscape), then click &quot;Capture phone screen&quot; to use it as the background</source>
+        <translation>先在手机上打开游戏（横屏），再点「从手机截图」，截图会作为背景</translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <translation>删除「%1」</translation>
+    </message>
+    <message>
+        <source>Add here: %1</source>
+        <translation>在这里添加：%1</translation>
+    </message>
+</context>
+<context>
+    <name>KeyMapEditor</name>
+    <message>
+        <source>Could not run adb: %1</source>
+        <translation>无法运行 adb：%1</translation>
+    </message>
+    <message>
+        <source>Keymap:</source>
+        <translation>配置文件：</translation>
+    </message>
+    <message>
+        <source>New...</source>
+        <translation>新建…</translation>
+    </message>
+    <message>
+        <source>Save as...</source>
+        <translation>另存为…</translation>
+    </message>
+    <message>
+        <source>Save and apply (Ctrl+S)</source>
+        <translation>保存并应用 (Ctrl+S)</translation>
+    </message>
+    <message>
+        <source>Writes the keymap and loads it on the connected phone right away</source>
+        <translation>保存配置，并立即加载到已连接的手机上</translation>
+    </message>
+    <message>
+        <source>Capture phone screen</source>
+        <translation>从手机截图</translation>
+    </message>
+    <message>
+        <source>Open image...</source>
+        <translation>打开图片…</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>Drag a marker to move it. Right click the screen to add a key there. Arrow keys move the selected point (Shift: faster), Delete removes the key.</source>
+        <translation>拖动标记可以移动位置；在画面上点右键可以在那里添加按键；方向键微调选中的点（按住 Shift 移动更快）；Delete 删除按键。</translation>
+    </message>
+    <message>
+        <source>Mapping on/off key:</source>
+        <translation>映射开关键：</translation>
+    </message>
+    <message>
+        <source>Keys:</source>
+        <translation>按键列表：</translation>
+    </message>
+    <message>
+        <source>Selected key</source>
+        <translation>选中的按键</translation>
+    </message>
+    <message>
+        <source>Type:</source>
+        <translation>类型：</translation>
+    </message>
+    <message>
+        <source>what this key does, e.g. jump</source>
+        <translation>这个键的用途，比如：跳</translation>
+    </message>
+    <message>
+        <source>Note:</source>
+        <translation>备注：</translation>
+    </message>
+    <message>
+        <source>Key:</source>
+        <translation>按键：</translation>
+    </message>
+    <message>
+        <source>Free the cursor after the tap</source>
+        <translation>点击后释放鼠标</translation>
+    </message>
+    <message>
+        <source>For keys that open a backpack, map or menu: the mouse can click the phone screen until the key is pressed again</source>
+        <translation>用于打开背包、地图、菜单的按键：按下后鼠标可以直接点手机画面，再按一次恢复视角控制</translation>
+    </message>
+    <message>
+        <source>Forward:</source>
+        <translation>前：</translation>
+    </message>
+    <message>
+        <source>Back:</source>
+        <translation>后：</translation>
+    </message>
+    <message>
+        <source>Left:</source>
+        <translation>左：</translation>
+    </message>
+    <message>
+        <source>Right:</source>
+        <translation>右：</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Walk key:</source>
+        <translation>慢走键：</translation>
+    </message>
+    <message>
+        <source>How far the stick is pushed while the walk key is held (1 = full)</source>
+        <translation>按住慢走键时摇杆推出的比例（1 = 推满）</translation>
+    </message>
+    <message>
+        <source>Walk push:</source>
+        <translation>慢走推出比例：</translation>
+    </message>
+    <message>
+        <source>Horizontal speed:</source>
+        <translation>水平灵敏度：</translation>
+    </message>
+    <message>
+        <source>Vertical speed:</source>
+        <translation>垂直灵敏度：</translation>
+    </message>
+    <message>
+        <source>Larger values turn slower.</source>
+        <translation>数值越大，视角转得越慢。</translation>
+    </message>
+    <message>
+        <source>Small eyes key:</source>
+        <translation>小眼睛按键：</translation>
+    </message>
+    <message>
+        <source>small eyes</source>
+        <translation>小眼睛</translation>
+    </message>
+    <message>
+        <source>Add a tap point</source>
+        <translation>增加一个点击点</translation>
+    </message>
+    <message>
+        <source>Remove the last point</source>
+        <translation>删除最后一个点</translation>
+    </message>
+    <message>
+        <source>Point:</source>
+        <translation>选中的点：</translation>
+    </message>
+    <message>
+        <source>Position:</source>
+        <translation>位置：</translation>
+    </message>
+    <message>
+        <source>All fields (json):</source>
+        <translation>全部字段（JSON）：</translation>
+    </message>
+    <message>
+        <source>Every field of this key, including ones without a control above. See docs/KeyMapDes_zh.md.</source>
+        <translation>这个按键的全部字段，包括上面没有控件的字段。字段说明见 docs/KeyMapDes_zh.md。</translation>
+    </message>
+    <message>
+        <source>Apply json</source>
+        <translation>应用 JSON</translation>
+    </message>
+    <message>
+        <source>Takes a screenshot of the phone through adb</source>
+        <translation>通过 adb 截取手机当前画面</translation>
+    </message>
+    <message>
+        <source>Takes a screenshot of %1 through adb</source>
+        <translation>通过 adb 截取 %1 的当前画面</translation>
+    </message>
+    <message>
+        <source>Cannot open %1</source>
+        <translation>无法打开 %1</translation>
+    </message>
+    <message>
+        <source>Cannot read %1: %2</source>
+        <translation>无法读取 %1：%2</translation>
+    </message>
+    <message>
+        <source>Cannot write %1: %2</source>
+        <translation>无法写入 %1：%2</translation>
+    </message>
+    <message>
+        <source>Save keymap</source>
+        <translation>保存按键配置</translation>
+    </message>
+    <message>
+        <source>This keymap has problems, keys with problems may not work:
+
+%1
+
+Save anyway?</source>
+        <translation>这个配置有以下问题，有问题的按键可能不生效：
+
+%1
+
+仍然保存吗？</translation>
+    </message>
+    <message>
+        <source>Saved %1</source>
+        <translation>已保存 %1</translation>
+    </message>
+    <message>
+        <source>File name:</source>
+        <translation>文件名：</translation>
+    </message>
+    <message>
+        <source>A file name cannot contain \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>文件名不能包含 \ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Replace it?</source>
+        <translation>%1 已存在，要覆盖吗？</translation>
+    </message>
+    <message>
+        <source>Save the changes to %1?</source>
+        <translation>要保存对 %1 的修改吗？</translation>
+    </message>
+    <message>
+        <source>the new keymap</source>
+        <translation>新配置</translation>
+    </message>
+    <message>
+        <source>New keymap</source>
+        <translation>新建按键配置</translation>
+    </message>
+    <message>
+        <source>New keymap: drag the stick and the view point onto the game, then right click to add keys</source>
+        <translation>已新建配置：先把摇杆和视角点拖到游戏里对应的位置，再右键添加按键</translation>
+    </message>
+    <message>
+        <source>Save keymap as</source>
+        <translation>按键配置另存为</translation>
+    </message>
+    <message>
+        <source>Capturing the phone screen...</source>
+        <translation>正在截取手机画面…</translation>
+    </message>
+    <message>
+        <source>Could not capture the phone screen. Is the phone connected and USB debugging allowed?
+
+%1</source>
+        <translation>截图失败。请确认手机已连接，并且允许了 USB 调试。
+
+%1</translation>
+    </message>
+    <message>
+        <source>The screenshot is portrait. Key positions follow the screen orientation, so open the game first and capture again.</source>
+        <translation>截图是竖屏的。按键位置跟随屏幕方向，请先进入游戏（横屏）再重新截图。</translation>
+    </message>
+    <message>
+        <source>Captured %1 x %2</source>
+        <translation>已截图 %1 x %2</translation>
+    </message>
+    <message>
+        <source>Open image</source>
+        <translation>打开图片</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp)</source>
+        <translation>图片 (*.png *.jpg *.jpeg *.bmp)</translation>
+    </message>
+    <message>
+        <source>x %1   y %2   (%3, %4 px)</source>
+        <translation>x %1   y %2   （%3, %4 像素）</translation>
+    </message>
+    <message>
+        <source>Not a valid json object: %1</source>
+        <translation>不是有效的 JSON 对象：%1</translation>
+    </message>
+    <message>
+        <source>Click a key on the screen or in the list</source>
+        <translation>在画面或列表里点选一个按键</translation>
+    </message>
+    <message>
+        <source>Remove small eyes (free look)</source>
+        <translation>删除小眼睛</translation>
+    </message>
+    <message>
+        <source>Add small eyes (free look)</source>
+        <translation>添加小眼睛</translation>
+    </message>
+    <message>
+        <source>swipe start</source>
+        <translation>滑动起点</translation>
+    </message>
+    <message>
+        <source>swipe end</source>
+        <translation>滑动终点</translation>
+    </message>
+    <message>
+        <source>stick center</source>
+        <translation>摇杆中心</translation>
+    </message>
+    <message>
+        <source>forward push</source>
+        <translation>向前推到</translation>
+    </message>
+    <message>
+        <source>back push</source>
+        <translation>向后推到</translation>
+    </message>
+    <message>
+        <source>left push</source>
+        <translation>向左推到</translation>
+    </message>
+    <message>
+        <source>right push</source>
+        <translation>向右推到</translation>
+    </message>
+    <message>
+        <source>view finger start</source>
+        <translation>视角手指起点</translation>
+    </message>
+    <message>
+        <source>view area top left</source>
+        <translation>视角区域左上角</translation>
+    </message>
+    <message>
+        <source>view area bottom right</source>
+        <translation>视角区域右下角</translation>
+    </message>
+    <message>
+        <source>small eyes button</source>
+        <translation>小眼睛按钮</translation>
+    </message>
+    <message>
+        <source>tap point %1</source>
+        <translation>第 %1 个点击点</translation>
+    </message>
+    <message>
+        <source>button</source>
+        <translation>按钮</translation>
+    </message>
+    <message>
+        <source>No problems found.</source>
+        <translation>没有发现问题。</translation>
+    </message>
+    <message>
+        <source>Keymap Editor</source>
+        <translation>按键编辑器</translation>
+    </message>
+    <message>
+        <source>untitled</source>
+        <translation>未命名</translation>
+    </message>
+</context>
+<context>
+    <name>KeyMapModel</name>
+    <message>
+        <source>%1 (at character %2)</source>
+        <translation>%1（第 %2 个字符处）</translation>
+    </message>
+    <message>
+        <source>the file is not a json object</source>
+        <translation>文件内容不是 JSON 对象</translation>
+    </message>
+    <message>
+        <source>keyMapNodes must only contain objects</source>
+        <translation>keyMapNodes 里只能放对象</translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation>鼠标</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>视角</translation>
+    </message>
+    <message>
+        <source>Stick</source>
+        <translation>摇杆</translation>
+    </message>
+    <message>
+        <source>The mapping on/off key is not set</source>
+        <translation>没有设置映射开关键</translation>
+    </message>
+    <message>
+        <source>%1: the sensitivity (speedRatioX) is missing</source>
+        <translation>%1：缺少灵敏度 (speedRatioX)</translation>
+    </message>
+    <message>
+        <source>%1: the start point is missing</source>
+        <translation>%1：缺少起点</translation>
+    </message>
+    <message>
+        <source>%1: the start point must be inside the view area (dashed box)</source>
+        <translation>%1：起点必须在视角区域（虚线框）内</translation>
+    </message>
+    <message>
+        <source>%1: the small eyes key is not set</source>
+        <translation>%1：没有设置小眼睛按键</translation>
+    </message>
+    <message>
+        <source>small eyes</source>
+        <translation>小眼睛</translation>
+    </message>
+    <message>
+        <source>%1: small eyes must be inside the view area (dashed box)</source>
+        <translation>%1：小眼睛必须在视角区域（虚线框）内</translation>
+    </message>
+    <message>
+        <source>%1: switchMap is missing</source>
+        <translation>%1：缺少 switchMap 字段（这个键会被忽略）</translation>
+    </message>
+    <message>
+        <source>%1: there is no click point</source>
+        <translation>%1：没有点击点</translation>
+    </message>
+    <message>
+        <source>%1: a click point is outside the screen</source>
+        <translation>%1：有点击点在屏幕外</translation>
+    </message>
+    <message>
+        <source>%1: the walk key must be a keyboard key</source>
+        <translation>%1：慢走键必须是键盘按键</translation>
+    </message>
+    <message>
+        <source>%1: androidKey is missing</source>
+        <translation>%1：缺少 androidKey</translation>
+    </message>
+    <message>
+        <source>%1: unknown type &quot;%2&quot;</source>
+        <translation>%1：未知类型「%2」</translation>
+    </message>
+    <message>
+        <source>%1: the key (%2) is not set</source>
+        <translation>%1：没有设置按键 (%2)</translation>
+    </message>
+    <message>
+        <source>%1: %2 is missing</source>
+        <translation>%1：缺少 %2</translation>
+    </message>
+    <message>
+        <source>%1: %2 is outside the screen</source>
+        <translation>%1：%2 在屏幕外</translation>
+    </message>
+    <message>
+        <source>Only one steer wheel takes effect (the last one)</source>
+        <translation>只有一个摇杆会生效（最后一个）</translation>
+    </message>
+    <message>
+        <source>Key %1 is used more than once: %2</source>
+        <translation>按键 %1 被重复使用：%2</translation>
+    </message>
+    <message>
+        <source>LMB</source>
+        <translation>左键</translation>
+    </message>
+    <message>
+        <source>RMB</source>
+        <translation>右键</translation>
+    </message>
+    <message>
+        <source>MMB</source>
+        <translation>中键</translation>
+    </message>
+    <message>
+        <source>Side 1</source>
+        <translation>侧键1</translation>
+    </message>
+    <message>
+        <source>Side 2</source>
+        <translation>侧键2</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>空格</translation>
+    </message>
+    <message>
+        <source>Tap / hold</source>
+        <translation>点击 / 按住</translation>
+    </message>
+    <message>
+        <source>Toggle (tap on press and on release)</source>
+        <translation>按下、松开各点一次</translation>
+    </message>
+    <message>
+        <source>Tap sequence</source>
+        <translation>连续点击</translation>
+    </message>
+    <message>
+        <source>Swipe</source>
+        <translation>滑动</translation>
+    </message>
+    <message>
+        <source>Movement stick (WASD)</source>
+        <translation>移动摇杆 (WASD)</translation>
+    </message>
+    <message>
+        <source>Android key</source>
+        <translation>安卓按键</translation>
+    </message>
+    <message>
+        <source>Mouse look</source>
+        <translation>鼠标视角</translation>
+    </message>
 </context>
 <context>
     <name>PresetConfigDialog</name>
@@ -699,6 +1243,14 @@
     <message>
         <source>auto connect</source>
         <translation>自动连接</translation>
+    </message>
+    <message>
+        <source>edit key positions on a phone screenshot</source>
+        <translation>在手机截图上编辑按键位置</translation>
+    </message>
+    <message>
+        <source>edit keymap</source>
+        <translation>编辑按键</translation>
     </message>
 </context>
 </TS>

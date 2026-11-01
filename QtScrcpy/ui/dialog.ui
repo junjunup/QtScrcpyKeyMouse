@@ -775,6 +775,16 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QPushButton" name="keymapEditorBtn">
+              <property name="toolTip">
+               <string>edit key positions on a phone screenshot</string>
+              </property>
+              <property name="text">
+               <string>edit keymap</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>
