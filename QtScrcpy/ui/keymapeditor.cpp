@@ -1698,7 +1698,8 @@ void KeyMapEditor::buildUi()
                 packages << part.trimmed();
             }
         }
-        if (packages == m_model.packages()) {
+        // QList::operator== trips an MSVC deprecation warning inside Qt 5.15
+        if (packages.join(',') == m_model.packages().join(',')) {
             return;
         }
         pushUndo();
